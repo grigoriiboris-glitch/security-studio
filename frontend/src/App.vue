@@ -22,12 +22,13 @@ const labOptions = [
 ];
 const activeLabLabel = computed(() => labs.activeLab?.name ?? "Остановлена");
 const progressReady = ref(false);
+const switchingLesson = ref(false);
 let progressSaveTimer: ReturnType<typeof setTimeout> | undefined;
 
 watch(
   () => [labs.editorCode, labs.selectedLabId, labs.checkResult] as const,
   () => {
-    if (!progressReady.value) return;
+    if (!progressReady.value || switchingLesson.value) return;
     if (progressSaveTimer) clearTimeout(progressSaveTimer);
     progressSaveTimer = setTimeout(() => {
       void saveProgress(lesson.value.id, {
@@ -70,8 +71,7 @@ function loadExample(kind: "vulnerable" | "fixed") {
 async function selectLesson(id: string) {
   selectedLessonId.value = id;
   const selected = lessons.find((item) => item.id === id) ?? lessons[0];
-  labs.checkResult = null;
-  selectedExample.value = "vulnerable";
+  switchingLesson.value = true;
   try {
     const saved = await fetchProgress(selected.id);
     if (saved) {
@@ -81,15 +81,21 @@ async function selectLesson(id: string) {
       selectedExample.value = saved.editorCode === selected.fixedCode ? "fixed" : "vulnerable";
     } else {
       const savedCode = await fetchExerciseCode(selected.id);
-      if (savedCode !== null) {
+      if (typeof savedCode === "string") {
         labs.editorCode = savedCode;
         selectedExample.value = savedCode === selected.fixedCode ? "fixed" : "vulnerable";
       } else {
         labs.loadExample("vulnerable", selected.id);
+        selectedExample.value = "vulnerable";
       }
+      labs.checkResult = null;
     }
   } catch {
     labs.loadExample("vulnerable", selected.id);
+    labs.checkResult = null;
+    selectedExample.value = "vulnerable";
+  } finally {
+    switchingLesson.value = false;
   }
 }
 async function runDemo() {
