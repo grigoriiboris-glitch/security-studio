@@ -1,4 +1,5 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 const exerciseFiles = {
@@ -35,7 +36,7 @@ export function createExerciseWorkspace(root = process.env.SECURITY_STUDIO_WORKS
   async function write(exerciseId: ExerciseId, code: string): Promise<void> {
     const path = exercisePath(exerciseId);
     await mkdir(dirname(path), { recursive: true });
-    const temporaryPath = path + ".tmp";
+    const temporaryPath = path + "." + randomUUID() + ".tmp";
     try {
       await writeFile(temporaryPath, code, { encoding: "utf8", mode: 0o600 });
       await rename(temporaryPath, path);
