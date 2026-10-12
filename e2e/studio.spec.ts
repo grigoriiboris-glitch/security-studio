@@ -209,7 +209,7 @@ test("runs synthetic exploit → fix → retest from the lesson workspace", asyn
   await page.goto("/");
   await page.getByRole("button", { name: "Подготовить сценарий" }).click();
   await page.getByRole("button", { name: "1. Exploit probe" }).click();
-  await expect(page.getByText("Контрольный exploit probe подтвердил уязвимое поведение.")).toBeVisible();
+  await expect(page.getByText("Контрольный exploit probe подтвердил уязвимое поведение.").first()).toBeVisible();
   await expect(page.locator(".runtime-history")).toContainText("Exploit probe");
   await page.getByRole("button", { name: "2. Проверить fix" }).click();
   await expect(page.getByText("Исправление принято.")).toBeVisible();
