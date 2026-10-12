@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from "vue";
+import { defineProps } from "vue";
 import type { UIMessage } from "ai";
 import {
   AuiConfig, AuiProvider, ComposerPrimitiveInput, ComposerPrimitiveSend,
@@ -10,8 +11,9 @@ import { ElMessage } from "element-plus";
 import { fetchChatHistory } from "../services/api";
 import { useLabsStore } from "../stores/labs";
 
+const props = defineProps<{ lessonId: string }>();
 const labs = useLabsStore();
-const conversationId = "security-studio-sql-injection";
+const conversationId = "security-studio-" + props.lessonId;
 const config = shallowRef<ReturnType<typeof AuiConfig> | null>(null);
 
 onMounted(async () => {
@@ -27,7 +29,7 @@ onMounted(async () => {
       messages,
       transport: new AssistantChatTransport({
         api: "/api/assistant/chat",
-        body: () => ({ lessonId: "sql-injection", code: labs.editorCode.slice(0, 12000) }),
+        body: () => ({ lessonId: props.lessonId, code: labs.editorCode.slice(0, 12000) }),
         credentials: "same-origin"
       }),
       onError: () => ElMessage.error("AI недоступен. Проверьте OPENCODE_GO_API_KEY в .env.")
