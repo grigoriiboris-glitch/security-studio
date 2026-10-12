@@ -69,6 +69,7 @@ export class LabManager implements LabManagerContract {
       "--tmpfs", "/tmp:rw,nosuid,nodev,size=128m,uid=999,gid=999",
       "--tmpfs", "/data/db:rw,nosuid,nodev,size=256m,uid=999,gid=999",
       "--tmpfs", "/opt/juice-shop/data:rw,nosuid,nodev,size=256m,uid=999,gid=999",
+      "--tmpfs", "/opt/juice-shop/i18n:rw,nosuid,nodev,size=16m,uid=999,gid=999",
       "--tmpfs", "/opt/juice-shop/.well-known:rw,nosuid,nodev,size=8m,uid=999,gid=999",
       "--tmpfs", "/opt/juice-shop/frontend/dist/frontend:rw,nosuid,nodev,size=128m,uid=999,gid=999",
       "--tmpfs", "/opt/juice-shop/ftp:rw,nosuid,nodev,size=16m,uid=999,gid=999",
