@@ -28,6 +28,7 @@ RUN set -eux; \
   curl -fsSL "https://github.com/juice-shop/juice-shop/releases/download/v$JUICE_SHOP_VERSION/juice-shop-$JUICE_SHOP_VERSION"_node22_linux_"$JUICE_ARCH".tgz -o /tmp/juice-shop.tgz; \
   echo "$JUICE_SHA  /tmp/juice-shop.tgz" | sha256sum -c -; \
   mkdir -p /opt/juice-shop; tar -xzf /tmp/juice-shop.tgz -C /opt/juice-shop --strip-components=1; \
+  mkdir -p /opt/juice-shop/data-bundled; mv /opt/juice-shop/data/static /opt/juice-shop/data-bundled/static; \
   git init /opt/nodegoat; \
   git -C /opt/nodegoat remote add origin https://github.com/OWASP/NodeGoat.git; \
   git -C /opt/nodegoat fetch --depth 1 origin "$NODEGOAT_COMMIT"; \

@@ -4,6 +4,8 @@ set -euo pipefail
 MODE="$1"
 case "$MODE" in
   juice-shop)
+    mkdir -p /opt/juice-shop/data /opt/juice-shop/logs
+    ln -sfn /opt/juice-shop/data-bundled/static /opt/juice-shop/data/static
     export HOST=0.0.0.0
     export PORT=3000
     cd /opt/juice-shop
