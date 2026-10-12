@@ -7,7 +7,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { z } from "zod";
 import { config } from "./config.js";
-import { buildLessonSystem, isLessonId, lessonIds, type LessonId } from "./lessons.js";
+import { buildLessonSystem, lessonIds, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkLessonFix } from "./security-check.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
