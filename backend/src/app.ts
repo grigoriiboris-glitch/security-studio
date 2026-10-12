@@ -35,7 +35,7 @@ type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fet
 const httpTargetLessons = new Set<LessonId>(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]);
 async function probeHttpTarget(app: FastifyInstance, lessonId: LessonId, runId: string): Promise<{ vulnerable: boolean; evidence: string[] }> {
   const base = "/api/labs/http-targets/" + lessonId + "/" + runId + "/fixture";
-  const request = async (url: string, method: "GET" | "POST" = "GET", payload?: unknown) =>
+  const request = async (url: string, method: "GET" | "POST" = "GET", payload?: { comment?: string }) =>
     app.inject({ method, url, ...(payload === undefined ? {} : { payload }) });
   let response;
   switch (lessonId) {
