@@ -11,10 +11,12 @@ import { buildLessonSystem, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkSqlInjectionFix } from "./security-check.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
+import { readExerciseCode, writeExerciseCode } from "./workspace.js";
 
 const lessonIdSchema = z.enum(["sql-injection"]);
 const labIdSchema = z.enum(["juice-shop", "nodegoat"]);
 const checkRequestSchema = z.object({ code: z.string().max(12000) });
+const workspaceRequestSchema = z.object({ code: z.string().max(12000) });
 const progressRequestSchema = z.object({
   editorCode: z.string().max(12000),
   selectedLabId: labIdSchema.default("juice-shop"),
@@ -76,6 +78,18 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     const query = z.object({ id: z.string().min(1).max(256) }).safeParse(request.query);
     if (!query.success) return reply.code(400).send({ error: "Укажите id диалога." });
     return { messages: getChatMessages(sessionIdFrom(query.data.id)) };
+  });
+
+  app.get("/api/workspace/sql-injection", async () => ({
+    code: await readExerciseCode("sql-injection"),
+    file: "user-repository.js"
+  }));
+
+  app.put("/api/workspace/sql-injection", async (request, reply) => {
+    const parsed = workspaceRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Код должен быть строкой длиной не более 12000 символов." });
+    await writeExerciseCode("sql-injection", parsed.data.code);
+    return { saved: true, file: "user-repository.js" };
   });
 
   app.get("/api/labs", async () => ({ labs: labCatalog }));
