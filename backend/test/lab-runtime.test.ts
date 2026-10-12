@@ -63,7 +63,7 @@ describe("all 30 synthetic runtime labs", () => {
     const base = "/api/labs/scenarios/" + lessonId;
     const created = await app.inject({ method: "POST", url: base + "/reset" });
     expect(created.statusCode).toBe(200);
-    expect(created.json().mode).toBe("synthetic");
+    expect(created.json().mode).toBe(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"].includes(lessonId) ? "controlled-http" : "synthetic");
     expect(created.json().codeExecution).toBe(false);
     const runId = created.json().run.runId;
 
