@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
-import { fetchHealth, runSqlInjectionDemo, type DemoResult } from "./services/api";
+import { fetchHealth, fetchProgress, saveProgress, runSqlInjectionDemo, type DemoResult } from "./services/api";
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
@@ -19,8 +19,40 @@ const labOptions = [
   { label: "OWASP NodeGoat", value: "nodegoat" }
 ];
 const activeLabLabel = computed(() => labs.activeLab?.name ?? "Остановлена");
+const progressReady = ref(false);
+let progressSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+watch(
+  () => [labs.editorCode, labs.selectedLabId, labs.checkResult] as const,
+  () => {
+    if (!progressReady.value) return;
+    if (progressSaveTimer) clearTimeout(progressSaveTimer);
+    progressSaveTimer = setTimeout(() => {
+      void saveProgress(lesson.id, {
+        editorCode: labs.editorCode,
+        selectedLabId: labs.selectedLabId,
+        checkResult: labs.checkResult
+      }).catch(() => ElMessage.warning("Не удалось сохранить прогресс в локальную базу."));
+    }, 700);
+  },
+  { deep: true }
+);
+
+onBeforeUnmount(() => {
+  if (progressSaveTimer) clearTimeout(progressSaveTimer);
+});
 
 onMounted(async () => {
+  try {
+    const saved = await fetchProgress(lesson.id);
+    if (saved) {
+      labs.editorCode = saved.editorCode;
+      labs.selectedLabId = saved.selectedLabId;
+      labs.checkResult = saved.checkResult;
+      selectedExample.value = saved.editorCode === lesson.fixedCode ? "fixed" : "vulnerable";
+    }
+  } catch { /* The health indicator reports API connection failures. */ }
+  progressReady.value = true;
   await labs.refresh();
   try {
     const health = await fetchHealth();
