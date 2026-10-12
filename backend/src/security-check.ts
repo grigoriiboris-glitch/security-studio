@@ -4,7 +4,8 @@ export type SecurityCheckResult = {
   evidence: string[];
 };
 
-const unsafeConcatenation = /\b(?:select|update|delete|insert)\b[\s\S]{0,400}\+\s*[A-Za-z_$][\w$]*/i;
+// Heuristic only: reject SQL keywords joined to dynamic values in either order.
+const unsafeConcatenation = /(?:\b(?:select|update|delete|insert)\b[\s\S]{0,400}\+\s*[A-Za-z_$][\w$]*|[A-Za-z_$][\w$]*\s*\+[\s\S]{0,400}\b(?:select|update|delete|insert)\b)/i;
 const unsafeTemplateInterpolation = new RegExp("(?:select|update|delete|insert)[\\s\\S]{0,400}?\\x60[^\\x60]*\\$\\{[^}]+\\}[^\\x60]*\\x60", "i");
 const parameterizedQuery = /(?:query|execute|prepare|all|get|run)\s*\(\s*["'\x60][\s\S]{0,500}?(?:\?|\$\d+|:[a-z_]\w*|@[a-z_]\w*)[\s\S]{0,100}["'\x60]\s*,\s*\[/i;
 const explicitPreparedStatement = /\.prepare\s*\(\s*["'\x60][\s\S]{0,500}?["'\x60]\s*\)/i;
