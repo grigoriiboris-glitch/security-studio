@@ -251,7 +251,7 @@ export const lessons: Lesson[] = [
     objectives: ["Найти источник недоверенных данных", "Показать риск на учебном примере", "Подтвердить исправление независимой проверкой"],
     vulnerableCode: "const value = deserialize(req.body.payload);",
     fixedCode: "const value = JSON.parse(req.body.payload); validateSchema(value);",
-    explanation: "Предпочитайте простой формат данных и проверяйте схему после разбора.", mitigation: undefined
+    explanation: "Предпочитайте простой формат данных и проверяйте схему после разбора.", mitigation: "Безопасный формат и проверка схемы"
   }
 ];
 
