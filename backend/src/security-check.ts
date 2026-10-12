@@ -34,7 +34,7 @@ const rules: Partial<Record<LessonId, Rule>> = {
   "xss-reflected": { safe: /escapeHtml|encodeHTML|textContent/i, unsafe: /\+\s*req\.(query|params|body)\.[A-Za-z_$][\w$]*\s*\+/i, safeEvidence: "Найдено экранирование/безопасный вывод.", unsafeEvidence: "Ввод отражается в HTML-строке." },
   "xss-stored": { safe: /textContent|escapeHtml|sanitizeHtml/i, unsafe: /innerHTML\s*=\s*[^;]*(comment|post|message|body)/i, safeEvidence: "Найден безопасный sink или санитайзер.", unsafeEvidence: "Сохранённый контент попадает в innerHTML." },
   "xss-dom": { safe: /textContent|createTextNode|sanitizeHtml/i, unsafe: /innerHTML\s*=\s*[^;]*location\./i, safeEvidence: "DOM-значение выводится как текст.", unsafeEvidence: "Источник из URL попадает в innerHTML." },
-  csrf: { safe: /verifyCsrfToken|csrfProtection|csrf\.protect/i, unsafe: /app\.(post|put|patch|delete)\s*\((?:(?!verifyCsrfToken|csrfProtection|csrf\.protect)[^;\n]){0,160}(update|change|delete|email|password)/i, safeEvidence: "Найдена CSRF-проверка.", unsafeEvidence: "Изменяющий маршрут без распознаваемой CSRF-защиты." },
+  csrf: { safe: /verifyCsrfToken|csrfProtection|csrf\.protect/i, unsafe: /app\.(post|put|patch|delete)\s*\((?![^;\n]*(verifyCsrfToken|csrfProtection|csrf\.protect))[^;\n]*(update|change|delete|email|password)/i, safeEvidence: "Найдена CSRF-проверка.", unsafeEvidence: "Изменяющий маршрут без распознаваемой CSRF-защиты." },
   idor: { safe: /ownerId\s*:\s*req\.user\.id|authorizeResource|canAccessResource/i, unsafe: /findUnique\s*\(\s*\{[^}]*id\s*:\s*req\.params\.id/i, safeEvidence: "Найдено ограничение по владельцу.", unsafeEvidence: "Объект ищется только по ID из запроса." },
   "broken-access-control": { safe: /requireRole\s*\(|authorize\s*\(|checkPermission\s*\(/i, unsafe: /app\.(get|post|put|patch|delete)\s*\(\s*["'][^"']*admin[^"']*["']\s*,\s*(?!requireRole|authorize|checkPermission)/i, safeEvidence: "Найден middleware авторизации.", unsafeEvidence: "Административный маршрут без видимой проверки роли." },
   "broken-authentication": { safe: /argon2\.verify|bcrypt\.compare|scryptVerify|verifyPassword\s*\(/i, unsafe: /password\s*===\s*user\.password|user\.password\s*===\s*password/i, safeEvidence: "Найден verifier хеша пароля.", unsafeEvidence: "Пароль сравнивается напрямую." },
@@ -67,7 +67,12 @@ export function checkLessonFix(lessonId: LessonId, code: string): SecurityCheckR
   const rule = rules[lessonId];
   if (!rule) return fail("Для урока не настроено правило проверки.", ["Нет verifier для выбранного урока."]);
   const source = removeComments(code);
-  const hasUnsafe = rule.unsafe.test(source);
+  let hasUnsafe = rule.unsafe.test(source);
+  if (lessonId === "session-fixation") {
+    const rotateAt = source.search(/session\.regenerate|rotateSession|regenerateSession/i);
+    const assignAt = source.search(/session\.userId\s*=\s*user\.id/i);
+    if (rotateAt >= 0 && assignAt >= 0 && rotateAt < assignAt) hasUnsafe = false;
+  }
   const hasSafe = rule.safe.test(source);
   const evidence = [
     hasSafe ? rule.safeEvidence : "Не найден ожидаемый защитный шаблон.",
