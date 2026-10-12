@@ -4,7 +4,7 @@ import { config } from "./config.js";
 
 const execFileAsync = promisify(execFile);
 const containerName = "security-studio-labs";
-const networkName = "security-studio-labs";
+const networkName = "security-studio-labs-no-egress";
 const allowedLabs = {
   "juice-shop": { name: "OWASP Juice Shop", url: "http://127.0.0.1:3000" },
   nodegoat: { name: "OWASP NodeGoat", url: "http://127.0.0.1:4000" }
@@ -54,7 +54,13 @@ export class LabManager implements LabManagerContract {
     if (!(id in allowedLabs)) throw new Error("Неизвестная лаборатория.");
     await this.stop();
     try { await docker(["network", "inspect", networkName]); }
-    catch { await docker(["network", "create", "--internal", networkName]); }
+    catch {
+      await docker([
+        "network", "create",
+        "--opt", "com.docker.network.bridge.enable_ip_masquerade=false",
+        networkName
+      ]);
+    }
 
     await docker([
       "run", "-d", "--rm", "--init",

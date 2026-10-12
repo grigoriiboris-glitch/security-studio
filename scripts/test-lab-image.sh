@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="$1"
-NETWORK="security-studio-ci-internal"
+NETWORK="security-studio-ci-no-egress"
 CONTAINER="security-studio-ci-lab"
 
 cleanup() {
@@ -10,7 +10,12 @@ cleanup() {
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-docker network create --internal "$NETWORK" >/dev/null
+docker network create --opt com.docker.network.bridge.enable_ip_masquerade=false "$NETWORK" >/dev/null
+
+if [ "$(docker network inspect -f '{{index .Options "com.docker.network.bridge.enable_ip_masquerade"}}' "$NETWORK")" != "false" ]; then
+  echo "FAIL: lab network unexpectedly enables outbound NAT" >&2
+  exit 1
+fi
 
 assert_no_egress() {
   if docker exec "$CONTAINER" node -e 'const c=new AbortController();const t=setTimeout(()=>c.abort(),4000);fetch("https://example.com",{signal:c.signal}).then(()=>{console.error("Unexpected outbound network access");process.exitCode=1},()=>{process.exitCode=0}).finally(()=>clearTimeout(t))'; then
