@@ -97,3 +97,65 @@ describe("additional verifier bypass regressions", () => {
     expect(checkLessonFix("password-reset", code).passed).toBe(false);
   });
 });
+
+
+describe("verifier adversarial alias-flow regressions", () => {
+  it("rejects reflected XSS when request input is assigned to an alias before response output", () => {
+    const code = [
+      "const safeTitle = escapeHtml('fixed');",
+      "const value = req.query.value;",
+      "reply.send('<h1>' + value + '</h1>');"
+    ].join("\n");
+    expect(checkLessonFix("xss-reflected", code).passed).toBe(false);
+  });
+
+  it("rejects stored and DOM XSS through aliased sources", () => {
+    expect(checkLessonFix("xss-stored", "const comment = req.body.comment; panel.innerHTML = comment;").passed).toBe(false);
+    expect(checkLessonFix("xss-dom", "const fragment = location.hash; panel.innerHTML = fragment;").passed).toBe(false);
+  });
+
+  it("rejects IDOR through an alias when owner scope is absent", () => {
+    const code = [
+      "const requestedId = req.params.id;",
+      "const harmless = { ownerId: req.user.id };",
+      "db.document.findUnique({ where: { id: requestedId } });"
+    ].join("\n");
+    expect(checkLessonFix("idor", code).passed).toBe(false);
+  });
+
+  it("rejects SSRF and open redirect when untrusted URL is first assigned to a variable", () => {
+    expect(checkLessonFix("ssrf", "const allowed = validateAllowlistedHttpsUrl('https://example.test'); const target = req.body.url; return fetch(target);").passed).toBe(false);
+    expect(checkLessonFix("open-redirect", 'const allowed = allowedLocalPath("/home"); const destination = req.query.next; return res.redirect(destination);').passed).toBe(false);
+  });
+
+  it("rejects aliased mass assignment and NoSQL selectors", () => {
+    expect(checkLessonFix("mass-assignment", "const patch = req.body; const safe = schema.parse({ name: 'fixed' }); await db.user.update({ data: patch });").passed).toBe(false);
+    expect(checkLessonFix("nosql-injection", "const safeEmail = String(req.body.email); const lookup = req.body.filter; users.findOne({ email: lookup });").passed).toBe(false);
+  });
+
+  it("rejects aliased upload filenames in public paths", () => {
+    expect(checkLessonFix("file-upload", "const randomName = randomUUID(); const uploadedName = file.originalname; await file.toFile(join(publicDir, uploadedName));").passed).toBe(false);
+  });
+
+  it("rejects multiline mutating routes without route-local CSRF protection", () => {
+    const code = [
+      "const verifyCsrfToken = makeCsrfMiddleware();",
+      "app.post(",
+      '  "/profile/email",',
+      "  requireLogin,",
+      "  updateEmail",
+      ");"
+    ].join("\n");
+    expect(checkLessonFix("csrf", code).passed).toBe(false);
+  });
+
+  it("rejects administration routes registered on router instead of app", () => {
+    const code = 'const canDelete = authorize("admin"); router.delete("/admin/users/:id", deleteUser);';
+    expect(checkLessonFix("broken-access-control", code).passed).toBe(false);
+  });
+
+  it("rejects time-derived password reset tokens despite an unrelated random generator", () => {
+    const code = ["const unused = randomBytes(32);", "const token = new Date().getTime().toString();"].join("\n");
+    expect(checkLessonFix("password-reset", code).passed).toBe(false);
+  });
+});

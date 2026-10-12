@@ -2,7 +2,7 @@ import { type LessonId } from "./lessons.js";
 
 export type SecurityCheckResult = { passed: boolean; message: string; evidence: string[] };
 const unsafeConcatenation = /(?:\b(?:select|update|delete|insert)\b[\s\S]{0,400}\+\s*[A-Za-z_$][\w$]*|[A-Za-z_$][\w$]*\s*\+[\s\S]{0,400}\b(?:select|update|delete|insert)\b)/i;
-const unsafeTemplateInterpolation = /(?:select|update|delete|insert)[\s\S]{0,400}?\x60[^\x60]*\$\{[^}]+\}[^\x60]*\x60/i;
+const unsafeTemplateInterpolation = /(?:\b(?:select|update|delete|insert)\b[\s\S]{0,400}?\x60[^\x60]*\$\{[^}]+\}[^\x60]*\x60|\x60[^\x60]*\b(?:select|update|delete|insert)\b[^\x60]*\$\{[^}]+\}[^\x60]*\x60)/i;
 const parameterizedQuery = /(?:query|execute|prepare|all|get|run)\s*\(\s*["'\x60][\s\S]{0,500}?(?:\?|\$\d+|:[a-z_]\w*|@[a-z_]\w*)[\s\S]{0,100}["'\x60]\s*,\s*\[/i;
 const explicitPreparedStatement = /\.prepare\s*\(\s*["'\x60][\s\S]{0,500}?["'\x60]\s*\)/i;
 function removeComments(code: string): string {
@@ -36,10 +36,10 @@ const rules: Partial<Record<LessonId, Rule>> = {
   "xss-dom": { safe: /textContent|createTextNode|sanitizeHtml/i, unsafe: /innerHTML\s*=\s*[^;]*location\./i, safeEvidence: "DOM-значение выводится как текст.", unsafeEvidence: "Источник из URL попадает в innerHTML." },
   csrf: { safe: /verifyCsrfToken|csrfProtection|csrf\.protect/i, unsafe: /app\.(post|put|patch|delete)\s*\((?![^;\n]*(verifyCsrfToken|csrfProtection|csrf\.protect))[^;\n]*(update|change|delete|email|password)/i, safeEvidence: "Найдена CSRF-проверка.", unsafeEvidence: "Изменяющий маршрут без распознаваемой CSRF-защиты." },
   idor: { safe: /ownerId\s*:\s*req\.user\.id|authorizeResource|canAccessResource/i, unsafe: /\b(?:findUnique|findFirst|findOne|findById)\s*\(\s*\{(?![^}]*\bownerId\s*:)[^}]*\b(?:id|_id)\s*:\s*req\.(?:params|query|body)\.id/i, safeEvidence: "Найдено ограничение по владельцу.", unsafeEvidence: "Объект ищется только по ID из запроса." },
-  "broken-access-control": { safe: /requireRole\s*\(|authorize\s*\(|checkPermission\s*\(/i, unsafe: /app\.(get|post|put|patch|delete)\s*\(\s*["'][^"']*admin[^"']*["']\s*,\s*(?!\s*(?:requireRole|authorize|checkPermission)\b)/i, safeEvidence: "Найден middleware авторизации.", unsafeEvidence: "Административный маршрут без видимой проверки роли." },
+  "broken-access-control": { safe: /requireRole\s*\(|authorize\s*\(|checkPermission\s*\(/i, unsafe: /(?:app|router|fastify)\.(get|post|put|patch|delete)\s*\(\s*["'][^"']*admin[^"']*["']\s*,\s*(?!\s*(?:requireRole|authorize|checkPermission)\b)/i, safeEvidence: "Найден middleware авторизации.", unsafeEvidence: "Административный маршрут без видимой проверки роли." },
   "broken-authentication": { safe: /argon2\.verify|bcrypt\.compare|scryptVerify|verifyPassword\s*\(/i, unsafe: /password\s*===\s*user\.password|user\.password\s*===\s*password/i, safeEvidence: "Найден verifier хеша пароля.", unsafeEvidence: "Пароль сравнивается напрямую." },
   "session-fixation": { safe: /session\.regenerate|rotateSession|regenerateSession/i, unsafe: /session\.userId\s*=\s*user\.id/i, safeEvidence: "Найдена ротация сессии.", unsafeEvidence: "Сессия назначается без видимой ротации." },
-  "password-reset": { safe: /createRandomExpiringSingleUseToken|randomBytes|randomUUID/i, unsafe: /resetToken\s*=\s*user\.resetToken|token\s*=\s*user\.resetToken|(?:resetToken|token)\s*=\s*(?:Math\.random\s*\(|Date\.now\s*\(|["'][^"']{0,80}["']|user\.id\b)/i, safeEvidence: "Найден генератор случайного токена; TTL и одноразовость требуют отдельных тестов.", unsafeEvidence: "Используется существующий/предсказуемый токен." },
+  "password-reset": { safe: /createRandomExpiringSingleUseToken|randomBytes|randomUUID/i, unsafe: /resetToken\s*=\s*user\.resetToken|token\s*=\s*user\.resetToken|(?:resetToken|token)\s*=\s*(?:Math\.random\s*\(|Date\.now\s*\(|new\s+Date\s*\([^)]*\)\.getTime\s*\(|performance\.now\s*\(|["'][^"']{0,80}["']|user\.id\b)/i, safeEvidence: "Найден генератор случайного токена; TTL и одноразовость требуют отдельных тестов.", unsafeEvidence: "Используется существующий/предсказуемый токен." },
   ssrf: { safe: /validateAllowlistedHttpsUrl|allowlistedUrl|assertAllowedDestination/i, unsafe: /fetch\s*\(\s*req\.(body|query)\.url|axios\.(get|request)\s*\(\s*req\.(body|query)\.url/i, safeEvidence: "Найден allowlist назначения.", unsafeEvidence: "Сетевой запрос использует URL из ввода напрямую." },
   "path-traversal": { safe: /basename\s*\(|isPathInside|safeResolveWithin/i, unsafe: /\b(?:readFile|createReadStream|sendFile)\s*\(\s*(?:(?:join|resolve)\s*\([^;]{0,200}req\.(?:query|params|body)|req\.(?:query|params|body)\.)/i, safeEvidence: "Найдено ограничение пути.", unsafeEvidence: "Путь строится из пользовательского ввода." },
   "file-upload": { safe: /saveValidatedFileOutsideWebRoot|validateFileContent|randomUUID\s*\(/i, unsafe: /join\s*\(\s*publicDir\s*,\s*file\.(?:filename|originalname|name|path)\b/i, safeEvidence: "Найдена проверка файла/случайное имя/хранение вне web-root.", unsafeEvidence: "Оригинальное имя используется в публичном каталоге." },
@@ -77,6 +77,61 @@ export function checkLessonFix(lessonId: LessonId, code: string): SecurityCheckR
     const reflectedAlias = /\b(?:const|let|var)\s+origin\s*=\s*req\.headers\.origin[\s\S]{0,200}["']Access-Control-Allow-Origin["']\s*,\s*origin\b/i.test(source);
     const guardedReflection = /if\s*\(\s*allowedOrigins\.has\s*\(\s*origin\s*\)\s*\)\s*(?:\{[\s\S]{0,200}?\b(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin|(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin)/i.test(source);
     if (reflectedAlias && !guardedReflection) hasUnsafe = true;
+  }
+  if (lessonId === "xss-reflected") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.(?:query|params|body)\.[A-Za-z_$][\w$]*/gi)].map((match) => match[1]);
+    for (const alias of aliases) {
+      const sink = new RegExp("\\b(?:res|reply)\\.(?:send|write|end)\\s*\\(([^;]{0,300})\\b" + alias + "\\b", "i").exec(source)?.[1] ?? "";
+      if (sink && !/(?:escapeHtml|encodeHTML|sanitizeHtml)\s*\(/i.test(sink)) hasUnsafe = true;
+    }
+  }
+  if (lessonId === "xss-stored") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.(?:body)\.(?:comment|post|message|body)\b/gi)].map((match) => match[1]);
+    if (aliases.some((alias) => new RegExp("\\.innerHTML\\s*=\\s*" + alias + "\\b", "i").test(source))) hasUnsafe = true;
+  }
+  if (lessonId === "xss-dom") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*location\.(?:hash|search|href)\b/gi)].map((match) => match[1]);
+    if (aliases.some((alias) => new RegExp("\\.innerHTML\\s*=\\s*" + alias + "\\b", "i").test(source))) hasUnsafe = true;
+  }
+  if (lessonId === "idor") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.(?:params|query|body)\.(?:id|documentId|recordId)\b/gi)];
+    for (const match of aliases) {
+      const tail = source.slice(match.index, match.index! + 700);
+      const lookup = /\b(?:findUnique|findFirst|findOne|findById)\s*\(\s*\{[\s\S]{0,350}?\}/i.exec(tail)?.[0] ?? "";
+      if (lookup && new RegExp("\\b(?:id|_id|documentId|recordId)\\s*:\\s*" + match[1] + "\\b", "i").test(lookup) && !/\bownerId\s*:/i.test(lookup)) hasUnsafe = true;
+    }
+  }
+  if (lessonId === "ssrf") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.(?:body|query)\.url\b/gi)].map((match) => match[1]);
+    for (const alias of aliases) {
+      const call = new RegExp("\\b(?:fetch|axios\\.(?:get|request)|request)\\s*\\(\\s*" + alias + "\\b", "i").test(source);
+      const validatedDestination = new RegExp("\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:validateAllowlistedHttpsUrl|assertAllowedDestination)\\s*\\(\\s*" + alias + "\\s*\\)", "i").exec(source);
+      if (call && !validatedDestination) hasUnsafe = true;
+      if (call && validatedDestination && new RegExp("\\b(?:fetch|axios\\.(?:get|request)|request)\\s*\\(\\s*" + alias + "\\b", "i").test(source)) hasUnsafe = true;
+    }
+  }
+  if (lessonId === "open-redirect") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.(?:query|body)\.(?:next|url|redirect)\b/gi)].map((match) => match[1]);
+    if (aliases.some((alias) => new RegExp("\\bredirect\\s*\\(\\s*" + alias + "\\b", "i").test(source))) hasUnsafe = true;
+  }
+  if (lessonId === "mass-assignment") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.body\b/gi)].map((match) => match[1]);
+    if (aliases.some((alias) => new RegExp("\\bdata\\s*:\\s*" + alias + "\\b", "i").test(source))) hasUnsafe = true;
+  }
+  if (lessonId === "nosql-injection") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*req\.body\.[A-Za-z_$][\w$]*\b/gi)].map((match) => match[1]);
+    for (const alias of aliases) {
+      const lookup = new RegExp("\\b(?:findOne|find|findById)\\s*\\(\\s*\\{[^}]{0,250}:\\s*" + alias + "\\b", "i").test(source);
+      if (lookup) hasUnsafe = true;
+    }
+  }
+  if (lessonId === "file-upload") {
+    const aliases = [...source.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*file\.(?:filename|originalname|name)\b/gi)].map((match) => match[1]);
+    if (aliases.some((alias) => new RegExp("\\bjoin\\s*\\(\\s*publicDir\\s*,\\s*" + alias + "\\b", "i").test(source))) hasUnsafe = true;
+  }
+  if (lessonId === "csrf") {
+    const mutationRoutes = [...source.matchAll(/\b(?:app|router)\.(?:post|put|patch|delete)\s*\([\s\S]{0,450}?\);/gi)];
+    if (mutationRoutes.some((match) => !/(?:verifyCsrfToken|csrfProtection|csrf\.protect)/i.test(match[0]) && /(?:email|password|profile|user|account|update|change|delete|order)/i.test(match[0]))) hasUnsafe = true;
   }
   if (lessonId === "session-fixation") {
     const rotateAt = source.search(/session\.regenerate|rotateSession|regenerateSession/i);
