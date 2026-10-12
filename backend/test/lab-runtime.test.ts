@@ -54,7 +54,8 @@ describe("all 30 synthetic runtime labs", () => {
     expect(new Set(scenarios.map((s: { lessonId: string }) => s.lessonId)).size).toBe(30);
     expect(scenarios.every((s: { workflow: { exploitProbe: boolean; remediationCheck: boolean; runtimeRetest: boolean; reset: boolean } }) =>
       s.workflow.exploitProbe && s.workflow.remediationCheck && s.workflow.runtimeRetest && s.workflow.reset)).toBe(true);
-    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(29);
+    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "runtime-ready")).toHaveLength(8);
+    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(22);
   });
 
   it.each(lessonIds)("runs exploit → fix → retest → reset for %s", async (lessonId) => {
