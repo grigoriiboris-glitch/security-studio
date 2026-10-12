@@ -25,3 +25,19 @@ export async function runSqlInjectionDemo(): Promise<DemoResult> {
 export async function checkCode(code: string): Promise<CheckResult> {
   return (await http.post("/labs/check", { code })).data;
 }
+
+export type SavedProgress = {
+  lessonId: string;
+  editorCode: string;
+  selectedLabId: LabId;
+  checkResult: CheckResult | null;
+  updatedAt: string;
+};
+export async function fetchProgress(lessonId: string): Promise<SavedProgress | null> {
+  return (await http.get<{ progress: SavedProgress | null }>("/progress/" + encodeURIComponent(lessonId))).data.progress;
+}
+export async function saveProgress(lessonId: string, progress: {
+  editorCode: string; selectedLabId: LabId; checkResult: CheckResult | null;
+}): Promise<void> {
+  await http.put("/progress/" + encodeURIComponent(lessonId), progress);
+}
