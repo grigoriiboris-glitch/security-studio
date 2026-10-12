@@ -45,3 +45,19 @@ describe("lesson-specific verifiers", () => {
     expect(good.passed, good.message + " " + good.evidence.join(" ")).toBe(true);
   });
 });
+
+
+describe("verifier rejects unrelated safe-looking code", () => {
+  it("does not accept a reflected-XSS fix when the response still sends request input directly", () => {
+    const code = "const title = element.textContent; res.send(req.query.value);";
+    expect(checkLessonFix("xss-reflected", code).passed).toBe(false);
+  });
+
+  it("does not let one rotated session hide an unrotated login route", () => {
+    const code = [
+      "await session.regenerate(); req.session.userId = user.id;",
+      'app.post("/login", (req, res) => { req.session.userId = user.id; });'
+    ].join("\n");
+    expect(checkLessonFix("session-fixation", code).passed).toBe(false);
+  });
+});
