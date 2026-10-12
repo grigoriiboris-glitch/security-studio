@@ -142,3 +142,40 @@ test("switching lesson changes the example and verifier receives that lesson ID"
   await page.getByRole("button", { name: "Проверить исправление" }).click();
   await expect.poll(() => checkedLesson).toBe("xss-dom");
 });
+
+test("runs synthetic exploit → fix → retest from the lesson workspace", async ({ page }) => {
+  const calls: string[] = [];
+  await page.route("**/api/labs/scenarios/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const action = url.pathname.split("/").pop() ?? "";
+    calls.push(action);
+    if (request.method() === "POST" && action === "reset" && url.pathname.split("/").length === 5) {
+      await route.fulfill({ json: { run: { runId: "e2e-run", lessonId: "sql-injection", phase: "ready", fixed: false, createdAt: "2026-01-01T00:00:00.000Z" }, mode: "synthetic", codeExecution: false } });
+      return;
+    }
+    if (action === "exploit") {
+      await route.fulfill({ json: { runId: "e2e-run", lessonId: "sql-injection", phase: "exploited", vulnerable: true, passed: true, message: "Контрольный exploit probe подтвердил уязвимое поведение.", evidence: ["Synthetic target"] } });
+      return;
+    }
+    if (action === "fix") {
+      await route.fulfill({ json: { runId: "e2e-run", lessonId: "sql-injection", phase: "fixed", vulnerable: false, passed: true, message: "Исправление принято.", evidence: ["Verifier passed"], remediation: { passed: true, message: "Базовая проверка SQLi пройдена.", evidence: [] } } });
+      return;
+    }
+    if (action === "retest") {
+      await route.fulfill({ json: { runId: "e2e-run", lessonId: "sql-injection", phase: "passed", vulnerable: false, passed: true, message: "Runtime retest пройден.", evidence: ["Same probe passed"] } });
+      return;
+    }
+    await route.fulfill({ json: { run: { runId: "e2e-run", lessonId: "sql-injection", phase: "ready", fixed: false, createdAt: "2026-01-01T00:00:00.000Z" } } });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Подготовить сценарий" }).click();
+  await page.getByRole("button", { name: "1. Exploit probe" }).click();
+  await expect(page.getByText("Контрольный exploit probe подтвердил уязвимое поведение.")).toBeVisible();
+  await page.getByRole("button", { name: "2. Проверить fix" }).click();
+  await expect(page.getByText("Исправление принято.")).toBeVisible();
+  await page.getByRole("button", { name: "3. Retest" }).click();
+  await expect(page.getByText("Runtime retest пройден.")).toBeVisible();
+  expect(calls).toEqual(["reset", "exploit", "fix", "retest"]);
+});
