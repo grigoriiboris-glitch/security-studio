@@ -1,12 +1,9 @@
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
+import { lessonIds, type LessonId } from "./lessons.js";
 
-const exerciseFiles = {
-  "sql-injection": "sql-injection/user-repository.js"
-} as const;
-
-export type ExerciseId = keyof typeof exerciseFiles;
+export type ExerciseId = LessonId;
 export type ExerciseWorkspace = {
   read(exerciseId: ExerciseId): Promise<string | null>;
   write(exerciseId: ExerciseId, code: string): Promise<void>;
@@ -16,7 +13,8 @@ export function createExerciseWorkspace(root = process.env.SECURITY_STUDIO_WORKS
   const workspaceRoot = resolve(root);
 
   function exercisePath(exerciseId: ExerciseId): string {
-    const path = resolve(workspaceRoot, exerciseFiles[exerciseId]);
+    if (!(lessonIds as readonly string[]).includes(exerciseId)) throw new Error("Неизвестный урок.");
+    const path = resolve(workspaceRoot, exerciseId, "solution.js");
     const relativePath = relative(workspaceRoot, path);
     if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
       throw new Error("Путь учебного файла выходит за пределы рабочей области.");
