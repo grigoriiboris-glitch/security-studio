@@ -58,3 +58,25 @@ export async function saveProgress(lessonId: string, progress: {
 }): Promise<void> {
   await http.put("/progress/" + encodeURIComponent(lessonId), progress);
 }
+
+export type SyntheticPhase = "ready" | "exploited" | "fixed" | "passed";
+export type SyntheticRun = { runId: string; lessonId: LessonId; phase: SyntheticPhase; fixed: boolean; createdAt: string };
+export type SyntheticEvidence = {
+  runId: string; lessonId: LessonId; phase: SyntheticPhase; vulnerable: boolean; passed: boolean;
+  message: string; evidence: string[]; remediation?: CheckResult;
+};
+export async function createSyntheticRun(lessonId: LessonId): Promise<SyntheticRun> {
+  return (await http.post<{ run: SyntheticRun }>("/labs/scenarios/" + encodeURIComponent(lessonId) + "/reset")).data.run;
+}
+export async function exploitSyntheticRun(lessonId: LessonId, runId: string): Promise<SyntheticEvidence> {
+  return (await http.post("/labs/scenarios/" + encodeURIComponent(lessonId) + "/" + encodeURIComponent(runId) + "/exploit")).data;
+}
+export async function fixSyntheticRun(lessonId: LessonId, runId: string, code: string): Promise<SyntheticEvidence> {
+  return (await http.post("/labs/scenarios/" + encodeURIComponent(lessonId) + "/" + encodeURIComponent(runId) + "/fix", { code })).data;
+}
+export async function retestSyntheticRun(lessonId: LessonId, runId: string): Promise<SyntheticEvidence> {
+  return (await http.post("/labs/scenarios/" + encodeURIComponent(lessonId) + "/" + encodeURIComponent(runId) + "/retest")).data;
+}
+export async function resetSyntheticRun(lessonId: LessonId, runId: string): Promise<SyntheticRun> {
+  return (await http.post<{ run: SyntheticRun }>("/labs/scenarios/" + encodeURIComponent(lessonId) + "/" + encodeURIComponent(runId) + "/reset")).data.run;
+}
