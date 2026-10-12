@@ -179,3 +179,54 @@ test("runs synthetic exploit → fix → retest from the lesson workspace", asyn
   await expect(page.getByText("Runtime retest пройден.")).toBeVisible();
   expect(calls).toEqual(["reset", "exploit", "fix", "retest"]);
 });
+
+
+test("lesson selector lists all 30 lessons and allows selecting the final lesson", async ({ page }) => {
+  await page.goto("/");
+  const selector = page.getByRole("combobox", { name: "Выбор урока" });
+  await selector.click();
+  await expect(page.getByRole("option")).toHaveCount(30);
+
+  const lastOption = page.getByRole("option", { name: "Insecure Deserialization", exact: true });
+  await lastOption.scrollIntoViewIfNeeded();
+  const box = await lastOption.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThan(0);
+  expect(box!.height).toBeGreaterThan(0);
+  await lastOption.click();
+  await expect(page.getByRole("heading", { name: "Insecure Deserialization", exact: true })).toBeVisible();
+});
+
+test("failed fix shows runtime evidence and keeps retest disabled", async ({ page }) => {
+  await page.route("**/api/labs/scenarios/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const action = url.pathname.split("/").pop() ?? "";
+    if (request.method() === "POST" && action === "reset" && url.pathname.split("/").length === 5) {
+      await route.fulfill({ json: { run: { runId: "failed-fix-run", lessonId: "sql-injection", phase: "ready", fixed: false, createdAt: "2026-01-01T00:00:00.000Z" }, mode: "synthetic", codeExecution: false } });
+      return;
+    }
+    if (action === "exploit") {
+      await route.fulfill({ json: { runId: "failed-fix-run", lessonId: "sql-injection", phase: "exploited", vulnerable: true, passed: true, message: "Контрольный exploit probe подтвердил уязвимое поведение.", evidence: ["Исходная мишень уязвима."] } });
+      return;
+    }
+    if (action === "fix") {
+      await route.fulfill({ json: { runId: "failed-fix-run", lessonId: "sql-injection", phase: "exploited", fixed: false, vulnerable: true, passed: false, message: "Исправление не подтверждено.", evidence: ["Уязвимый запрос всё ещё присутствует."], remediation: { passed: false, message: "Небезопасный sink найден.", evidence: ["Прямой вывод req.query.value."] } } });
+      return;
+    }
+    await route.fulfill({ json: { error: "Unexpected runtime action" }, status: 500 });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Подготовить сценарий" }).click();
+  await page.getByRole("button", { name: "1. Exploit probe" }).click();
+  await page.getByRole("button", { name: "2. Проверить fix" }).click();
+
+  const result = page.locator(".runtime-card .check-result");
+  await expect(result).toBeVisible();
+  await expect(result).not.toHaveClass(/passed/);
+  await expect(result).toContainText("Исправление не подтверждено.");
+  await expect(result).toContainText("Уязвимый запрос всё ещё присутствует.");
+  await expect(result).toContainText("Прямой вывод req.query.value.");
+  await expect(page.getByRole("button", { name: "3. Retest" })).toBeDisabled();
+});
