@@ -19,7 +19,7 @@ case "$MODE" in
     export MONGODB_URI=mongodb://127.0.0.1:27017/nodegoat
     export PORT=4000
     mkdir -p /data/db
-    mongod --bind_ip 127.0.0.1 --dbpath /data/db --quiet &
+    mongod --setParameter diagnosticDataCollectionEnabled=false --bind_ip 127.0.0.1 --dbpath /data/db --quiet &
     mongo_pid=$!
     app_pid=0
     cleanup() {
