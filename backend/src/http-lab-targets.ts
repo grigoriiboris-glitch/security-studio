@@ -26,7 +26,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
     return { lessonId, runId, target: "controlled-http-fixture", fixed: false };
   });
 
-  app.get("/api/labs/http-targets/:lessonId/:runId/fixture", async (request, reply) => {
+  app.route({ method: ["GET", "POST"], url: "/api/labs/http-targets/:lessonId/:runId/fixture", handler: async (request, reply) => {
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     const state = stateFor(lessonId, runId);
     if (!state) return reply.code(404).send({ error: "Prepare the target first." });
@@ -68,7 +68,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
       default:
         return reply.code(404).send({ error: "Unsupported target" });
     }
-  });
+  } });
 
   app.post("/api/labs/http-targets/:lessonId/:runId/fix", async (request, reply) => {
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
