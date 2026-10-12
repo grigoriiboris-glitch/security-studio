@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { checkCode, fetchLabStatus, startLab, stopLab, type ActiveLab, type CheckResult, type LabId } from "../services/api";
+import { checkCode, fetchLabStatus, startLab, stopLab, resetLab, type ActiveLab, type CheckResult, type LabId } from "../services/api";
 import { lessons } from "../data/lessons";
 
 export const useLabsStore = defineStore("labs", () => {
@@ -27,6 +27,13 @@ export const useLabsStore = defineStore("labs", () => {
     catch (error) { lastError.value = messageFrom(error, "Не удалось запустить лабораторию."); }
     finally { busy.value = false; }
   }
+  async function resetActiveLab() {
+    busy.value = true;
+    lastError.value = "";
+    try { activeLab.value = await resetLab(); }
+    catch (error) { lastError.value = messageFrom(error, "Не удалось сбросить лабораторию."); }
+    finally { busy.value = false; }
+  }
   async function stopActiveLab() {
     busy.value = true;
     try { await stopLab(); activeLab.value = null; }
@@ -45,7 +52,7 @@ export const useLabsStore = defineStore("labs", () => {
     editorCode.value = kind === "fixed" ? lesson.fixedCode : lesson.vulnerableCode;
     checkResult.value = null;
   }
-  return { selectedLabId, activeLab, editorCode, checkResult, busy, lastError, refresh, startSelectedLab, stopActiveLab, verifyCode, loadExample };
+  return { selectedLabId, activeLab, editorCode, checkResult, busy, lastError, refresh, startSelectedLab, stopActiveLab, resetActiveLab, verifyCode, loadExample };
 });
 
 function messageFrom(error: unknown, fallback: string): string {
