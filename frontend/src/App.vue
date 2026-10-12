@@ -163,7 +163,7 @@ async function runSyntheticExploit() {
   try {
     runtimeEvidence.value = await exploitSyntheticRun(lesson.value.id, runtimeRun.value.runId);
     runtimeRun.value.phase = runtimeEvidence.value.phase;
-    runtimeRun.value.fixed = !runtimeEvidence.value.vulnerable;
+    runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
   } catch { ElMessage.error("Не удалось выполнить контрольный probe."); }
   finally { runtimeBusy.value = false; }
 }
@@ -183,7 +183,7 @@ async function runSyntheticRetest() {
   try {
     runtimeEvidence.value = await retestSyntheticRun(lesson.value.id, runtimeRun.value.runId);
     runtimeRun.value.phase = runtimeEvidence.value.phase;
-    runtimeRun.value.fixed = !runtimeEvidence.value.vulnerable;
+    runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
   } catch { ElMessage.error("Не удалось выполнить runtime retest."); }
   finally { runtimeBusy.value = false; }
 }
