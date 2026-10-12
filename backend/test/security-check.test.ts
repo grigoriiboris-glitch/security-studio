@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkSqlInjectionFix } from "../src/security-check.js";
+import { checkLessonFix, checkSqlInjectionFix } from "../src/security-check.js";
 
 describe("SQL injection static verifier: known vulnerable and fixed examples", () => {
   const vulnerableExamples = [
@@ -64,5 +64,18 @@ describe("SQL injection static verifier: known vulnerable and fixed examples", (
       'const unsafe = username + "SELECT * FROM users WHERE id = ";'
     ].join("\n");
     expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+});
+
+
+describe("IDOR owner-scope verifier", () => {
+  it("accepts a resource lookup constrained by the authenticated owner", () => {
+    const result = checkLessonFix("idor", "findUnique({ id: req.params.id, ownerId: req.user.id });");
+    expect(result.passed).toBe(true);
+  });
+
+  it("rejects a resource lookup using only the caller-controlled ID", () => {
+    const result = checkLessonFix("idor", "findUnique({ id: req.params.id });");
+    expect(result.passed).toBe(false);
   });
 });
