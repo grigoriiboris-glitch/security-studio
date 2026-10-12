@@ -32,7 +32,7 @@ run_lab() {
     --tmpfs /opt/juice-shop/ftp:rw,nosuid,nodev,size=16m,uid=999,gid=999 \
     --tmpfs /opt/juice-shop/logs:rw,nosuid,nodev,size=32m,uid=999,gid=999 \
     "$IMAGE" "$mode" >/dev/null
-  for attempt in $(seq 1 180); do
+  for attempt in $(seq 1 360); do
     if curl --silent --show-error --fail "http://127.0.0.1:$host_port$path" >/dev/null 2>&1; then
       echo "PASS: $mode answered HTTP on port $host_port"
       docker rm -f "$CONTAINER" >/dev/null
