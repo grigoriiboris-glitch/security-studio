@@ -2,6 +2,7 @@ import axios from "axios";
 import type { UIMessage } from "ai";
 
 export type LabId = "juice-shop" | "nodegoat";
+export type LessonId = string;
 export type ActiveLab = { id: LabId; name: string; url: string; status: "running" };
 export type CheckResult = { passed: boolean; message: string; evidence: string[] };
 export type DemoResult = CheckResult;
@@ -23,12 +24,12 @@ export async function stopLab(): Promise<void> {
 export async function runSqlInjectionDemo(): Promise<DemoResult> {
   return (await http.post("/labs/demo-sqli")).data;
 }
-export async function checkCode(code: string): Promise<CheckResult> {
-  return (await http.post("/labs/check", { code })).data;
+export async function checkCode(code: string, lessonId: LessonId = "sql-injection"): Promise<CheckResult> {
+  return (await http.post("/labs/check", { lessonId, code })).data;
 }
 
-export async function saveExerciseCode(code: string): Promise<void> {
-  await http.put("/workspace/sql-injection", { code });
+export async function saveExerciseCode(code: string, lessonId: LessonId = "sql-injection"): Promise<void> {
+  await http.put("/workspace/" + encodeURIComponent(lessonId), { code });
 }
 
 export async function fetchChatHistory(conversationId: string): Promise<UIMessage[]> {
