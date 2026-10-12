@@ -112,6 +112,23 @@ describe("Security Studio API", () => {
     expect(response.body).not.toContain("token-that-must-not-leak");
   });
 
+  it("persists and restores local lesson progress through SQLite", async () => {
+    const app = await makeApp();
+    const payload = {
+      editorCode: 'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+      selectedLabId: "nodegoat",
+      checkResult: { passed: true, message: "Проверка пройдена", evidence: ["Параметризованный запрос"] }
+    };
+    const saved = await app.inject({ method: "PUT", url: "/api/progress/sql-injection", payload });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json().progress.editorCode).toBe(payload.editorCode);
+    expect(saved.json().progress.selectedLabId).toBe("nodegoat");
+    const loaded = await app.inject({ method: "GET", url: "/api/progress/sql-injection" });
+    expect(loaded.statusCode).toBe(200);
+    expect(loaded.json().progress.checkResult).toEqual(payload.checkResult);
+    expect((await app.inject({ method: "PUT", url: "/api/progress/unknown", payload })).statusCode).toBe(400);
+  });
+
   it("validates chat payload before contacting upstream", async () => {
     const response = await (await makeApp()).inject({
       method: "POST", url: "/api/assistant/chat", payload: { messages: [], lessonId: "invalid" }
