@@ -4,9 +4,11 @@ set -euo pipefail
 MODE="$1"
 case "$MODE" in
   juice-shop)
-    mkdir -p /opt/juice-shop/data /opt/juice-shop/data/static /opt/juice-shop/logs /opt/juice-shop/.well-known
+    mkdir -p /opt/juice-shop/data /opt/juice-shop/data/static /opt/juice-shop/logs /opt/juice-shop/.well-known /opt/juice-shop/frontend/dist/frontend /opt/juice-shop/ftp
     cp -a /opt/juice-shop/data-bundled/static/. /opt/juice-shop/data/static/
     cp -a /opt/juice-shop/.well-known-bundled/. /opt/juice-shop/.well-known/
+    cp -a /opt/juice-shop/frontend/dist/frontend-bundled/. /opt/juice-shop/frontend/dist/frontend/
+    cp -a /opt/juice-shop/ftp-bundled/. /opt/juice-shop/ftp/
     export HOST=0.0.0.0
     export PORT=3000
     cd /opt/juice-shop
