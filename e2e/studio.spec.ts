@@ -202,7 +202,7 @@ test("failed fix shows runtime evidence and keeps retest disabled", async ({ pag
     const request = route.request();
     const url = new URL(request.url());
     const action = url.pathname.split("/").pop() ?? "";
-    if (request.method() === "POST" && action === "reset" && url.pathname.split("/").length === 5) {
+    if (request.method() === "POST" && action === "reset" && url.pathname.startsWith("/api/labs/scenarios/")) {
       await route.fulfill({ json: { run: { runId: "failed-fix-run", lessonId: "sql-injection", phase: "ready", fixed: false, createdAt: "2026-01-01T00:00:00.000Z" }, mode: "synthetic", codeExecution: false } });
       return;
     }
