@@ -117,6 +117,18 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     }
   });
 
+  app.post("/api/labs/reset", async (request, reply) => {
+    const status = await labManager.status();
+    if (!status.available) return reply.code(503).send({ error: status.message ?? "Docker недоступен." });
+    if (!status.activeLab) return reply.code(409).send({ error: "Сначала запустите лабораторию." });
+    try {
+      return { activeLab: await labManager.start(status.activeLab.id), reset: true };
+    } catch (error) {
+      request.log.error({ error: errorMessage(error) }, "Failed to reset lab");
+      return reply.code(503).send({ error: "Не удалось сбросить учебную среду.", message: errorMessage(error) });
+    }
+  });
+
   app.post("/api/labs/stop", async (request, reply) => {
     try { await labManager.stop(); return { stopped: true }; }
     catch (error) {
