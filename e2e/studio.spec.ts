@@ -49,7 +49,7 @@ test("editor submits changed code to backend checker and displays its result", a
   });
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "SQL Injection" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "SQL Injection", exact: true })).toBeVisible();
 
   const editor = page.locator(".monaco-editor").first();
   await expect(editor).toBeVisible();
@@ -136,7 +136,7 @@ test("switching lesson changes the example and verifier receives that lesson ID"
 
   await page.goto("/");
   const selector = page.getByRole("combobox", { name: "Выбор урока" });
-  await selector.click();
+  await selector.fill("DOM XSS");
   await page.getByRole("option", { name: "DOM XSS" }).click();
   await expect(page.locator(".monaco-editor .view-lines").first()).toContainText("location.hash");
   await page.getByRole("button", { name: "Проверить исправление" }).click();
