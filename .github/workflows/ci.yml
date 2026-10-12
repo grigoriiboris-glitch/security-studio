@@ -14,8 +14,8 @@ jobs:
     name: Frontend, API and unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22.23.3"
       - name: Install workspace dependencies
@@ -33,7 +33,7 @@ jobs:
     name: Build unified labs image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Build image
         run: docker build --pull -f labs/Dockerfile -t security-labs:ci labs
       - name: Smoke test both labs sequentially
