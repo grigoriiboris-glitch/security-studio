@@ -159,20 +159,53 @@ describe("Security Studio API", () => {
       const app = await makeApp(undefined, createExerciseWorkspace(root));
       const initial = await app.inject({ method: "GET", url: "/api/workspace/sql-injection" });
       expect(initial.statusCode).toBe(200);
-      expect(initial.json()).toMatchObject({ code: null, file: "user-repository.js" });
+      expect(initial.json()).toMatchObject({ code: null, file: "solution.js" });
 
       const code = 'db.query("SELECT * FROM users WHERE name = ?", [username]);';
       const saved = await app.inject({
         method: "PUT", url: "/api/workspace/sql-injection", payload: { code }
       });
       expect(saved.statusCode).toBe(200);
-      expect(saved.json()).toEqual({ saved: true, file: "user-repository.js" });
+      expect(saved.json()).toEqual({ saved: true, file: "solution.js" });
 
       const loaded = await app.inject({ method: "GET", url: "/api/workspace/sql-injection" });
       expect(loaded.json().code).toBe(code);
       expect((await app.inject({
         method: "PUT", url: "/api/workspace/sql-injection", payload: { code: "x".repeat(12001) }
       })).statusCode).toBe(400);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("publishes the 30 lesson IDs and rejects unknown lesson IDs", async () => {
+    const app = await makeApp();
+    const catalog = await app.inject({ method: "GET", url: "/api/lessons" });
+    expect(catalog.statusCode).toBe(200);
+    expect(catalog.json().lessonIds).toHaveLength(30);
+    expect(new Set(catalog.json().lessonIds).size).toBe(30);
+    expect((await app.inject({
+      method: "POST", url: "/api/labs/check", payload: { lessonId: "not-a-lesson", code: "anything" }
+    })).statusCode).toBe(400);
+  });
+
+  it("checks the selected lesson and stores workspace code separately per lesson", async () => {
+    const root = await mkdtemp(join(tmpdir(), "security-studio-multi-workspace-"));
+    try {
+      const app = await makeApp(undefined, createExerciseWorkspace(root));
+      const checked = await app.inject({
+        method: "POST", url: "/api/labs/check",
+        payload: { lessonId: "xss-dom", code: "result.textContent = location.hash.slice(1);" }
+      });
+      expect(checked.statusCode).toBe(200);
+      expect(checked.json().passed).toBe(true);
+      const codeA = "element.textContent = comment.body;";
+      const codeB = "result.textContent = location.hash;";
+      expect((await app.inject({ method: "PUT", url: "/api/workspace/xss-stored", payload: { code: codeA } })).statusCode).toBe(200);
+      expect((await app.inject({ method: "PUT", url: "/api/workspace/xss-dom", payload: { code: codeB } })).statusCode).toBe(200);
+      expect((await app.inject({ method: "GET", url: "/api/workspace/xss-stored" })).json().code).toBe(codeA);
+      expect((await app.inject({ method: "GET", url: "/api/workspace/xss-dom" })).json().code).toBe(codeB);
+      expect((await app.inject({ method: "GET", url: "/api/workspace/not-a-lesson" })).statusCode).toBe(400);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
