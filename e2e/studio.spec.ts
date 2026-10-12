@@ -55,6 +55,27 @@ test("reveals lesson hints progressively and can hide them again", async ({ page
   await expect(page.locator(".hint-card .objective-list")).toHaveCount(0);
 });
 
+test("isolated DOM XSS browser probe distinguishes vulnerable and fixed rendering", async ({ page }) => {
+  await page.route("**/api/progress/xss-dom", async (route) => {
+    await route.fulfill({ json: { progress: null } });
+  });
+  await page.route("**/api/workspace/xss-dom", async (route) => {
+    await route.fulfill({ json: { code: null, file: "solution.js" } });
+  });
+
+  await page.goto("/");
+  const selector = page.getByRole("combobox", { name: "Выбор урока" });
+  await selector.fill("DOM-based XSS");
+  await page.getByRole("option", { name: "DOM-based XSS" }).click();
+
+  await expect(page.getByRole("heading", { name: "DOM XSS: проверка в браузере" })).toBeVisible();
+  await page.getByRole("button", { name: "Проверить уязвимый вывод" }).click();
+  await expect(page.getByText(/Атака подтверждена: HTML-ввод выполнил событие/)).toBeVisible();
+
+  await page.getByRole("button", { name: "Проверить textContent" }).click();
+  await expect(page.getByText(/Защита подтверждена: ввод отображён как текст/)).toBeVisible();
+});
+
 test("editor submits changed code to backend checker and displays its result", async ({ page }) => {
   let submittedCode = "";
   await page.route("**/api/labs/check", async (route) => {
