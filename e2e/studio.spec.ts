@@ -212,10 +212,10 @@ test("runs synthetic exploit → fix → retest from the lesson workspace", asyn
   await expect(page.getByText("Контрольный exploit probe подтвердил уязвимое поведение.").first()).toBeVisible();
   await expect(page.locator(".runtime-history")).toContainText("Exploit probe");
   await page.getByRole("button", { name: "2. Проверить fix" }).click();
-  await expect(page.getByText("Исправление принято.")).toBeVisible();
+  await expect(page.getByText("Исправление принято.", { exact: true })).toBeVisible();
   await expect(page.locator(".runtime-history")).toContainText("Проверка исправления");
   await page.getByRole("button", { name: "3. Retest" }).click();
-  await expect(page.getByText("Runtime retest пройден.")).toBeVisible();
+  await expect(page.getByText("Runtime retest пройден.", { exact: true })).toBeVisible();
   await expect(page.locator(".runtime-history")).toContainText("Независимый retest");
   expect(calls).toEqual(["reset", "exploit", "fix", "retest"]);
 });
