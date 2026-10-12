@@ -11,7 +11,7 @@ const running = ref(false);
 
 function handleMessage(event: MessageEvent<ProbeMessage>) {
   if (!frame.value || event.source !== frame.value.contentWindow || !event.data || typeof event.data !== "object") return;
-  if (event.data.type === "payload-executed") {
+  if (event.data.type === "payload-executed" && event.data.mode === mode.value) {
     status.value = "Атака подтверждена: HTML-ввод выполнил событие внутри изолированного iframe.";
     running.value = false;
   } else if (event.data.type === "render-complete" && event.data.mode === "fixed") {
@@ -26,9 +26,9 @@ function runProbe(nextMode: ProbeMode) {
   mode.value = nextMode;
   running.value = true;
   status.value = nextMode === "vulnerable" ? "Запускаем контролируемую XSS-мишень…" : "Проверяем безопасный вывод…";
-  const payload = '<img src="blocked-by-csp" onerror="parent.postMessage({type:\'payload-executed\'}, \'*\')">';
+  const payload = '<img src="blocked-by-csp" onerror="parent.postMessage({type:\'payload-executed\', mode:\'vulnerable\'}, \'*\')">';
   const render = nextMode === "vulnerable" ? "target.innerHTML = payload;" : "target.textContent = payload;";
-  const source = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'none'; script-src 'unsafe-inline'"></head><body><p id="target"></p><script>const payload = ${JSON.stringify(payload)}; const target = document.getElementById('target'); ${render} parent.postMessage({type:'render-complete', mode:${JSON.stringify(nextMode)}}, '*');<\/script></body></html>`;
+  const source = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'none'; script-src 'unsafe-inline'"></head><body><p id="target"></p><script>const payload = ${JSON.stringify(payload)}; const target = document.getElementById('target'); ${render} parent.postMessage({type:'render-complete', mode:${JSON.stringify(nextMode)}}, '*');<${"/"}script></body></html>`;
   if (frame.value) frame.value.srcdoc = source;
 }
 
