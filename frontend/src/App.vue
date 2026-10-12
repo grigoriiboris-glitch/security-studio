@@ -4,7 +4,7 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
-import { fetchHealth, fetchProgress, saveProgress, runSqlInjectionDemo, type DemoResult } from "./services/api";
+import { fetchHealth, fetchProgress, saveProgress, saveExerciseCode, runSqlInjectionDemo, type DemoResult } from "./services/api";
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
@@ -12,6 +12,7 @@ const lesson = lessons[0];
 const apiOnline = ref(false);
 const aiConfigured = ref(false);
 const demoBusy = ref(false);
+const savingCode = ref(false);
 const demoResult = ref<DemoResult | null>(null);
 const selectedExample = ref<"vulnerable" | "fixed">("vulnerable");
 const labOptions = [
@@ -93,6 +94,17 @@ async function runCheck() {
       message: labs.checkResult.message,
       duration: 4500
     });
+  }
+}
+async function saveCode() {
+  savingCode.value = true;
+  try {
+    await saveExerciseCode(labs.editorCode);
+    ElMessage.success("Код сохранён в рабочую область урока.");
+  } catch {
+    ElMessage.error("Не удалось сохранить код. Проверьте подключение к API.");
+  } finally {
+    savingCode.value = false;
   }
 }
 async function toggleLab() {
@@ -179,8 +191,11 @@ async function toggleLab() {
               <div class="editor-meta"><span class="file-dot"></span><span>user-repository.js</span><span class="editor-language">JavaScript</span></div>
               <CodeEditor v-model="labs.editorCode" />
               <div class="editor-footer">
-                <span>Изменения в редакторе не меняют системные файлы лаборатории.</span>
-                <el-button type="primary" :loading="labs.busy" @click="runCheck">Проверить исправление</el-button>
+                <span>Сохраняйте свой фрагмент в изолированной рабочей области урока.</span>
+                <div class="editor-actions">
+                  <el-button :loading="savingCode" @click="saveCode">Сохранить код</el-button>
+                  <el-button type="primary" :loading="labs.busy" @click="runCheck">Проверить исправление</el-button>
+                </div>
               </div>
               <div v-if="labs.checkResult" class="check-result" :class="{ passed: labs.checkResult.passed }">
                 <div class="check-result-title"><span>{{ labs.checkResult.passed ? "✓" : "!" }}</span>{{ labs.checkResult.passed ? "Проверка пройдена" : "Нужно исправить" }}</div>
