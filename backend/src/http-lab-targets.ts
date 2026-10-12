@@ -30,7 +30,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     const state = stateFor(lessonId, runId);
     if (!state) return reply.code(404).send({ error: "Prepare the target first." });
-    const query = request.query as { value?: string; id?: string; token?: string; path?: string; url?: string };
+    const query = request.query as { value?: string; id?: string; token?: string; path?: string; url?: string; sessionId?: string; filename?: string; input?: string; entity?: string; template?: string; next?: string; origin?: string; field?: string; role?: string; total?: string; key?: string; username?: string; type?: string; action?: string; password?: string };
     const value = String(query.value ?? "<img src=x onerror=alert(1)>");
     switch (lessonId) {
       case "xss-reflected":
