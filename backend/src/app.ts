@@ -11,7 +11,7 @@ import { buildLessonSystem, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkSqlInjectionFix } from "./security-check.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
-import { readExerciseCode, writeExerciseCode } from "./workspace.js";
+import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
 
 const lessonIdSchema = z.enum(["sql-injection"]);
 const labIdSchema = z.enum(["juice-shop", "nodegoat"]);
@@ -28,7 +28,7 @@ const chatRequestSchema = z.object({
   lessonId: lessonIdSchema.default("sql-injection"),
   code: z.string().max(12000).optional()
 });
-type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fetch };
+type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fetch; workspace?: ExerciseWorkspace };
 
 function sessionIdFrom(value: string | undefined): string {
   if (!value) return randomUUID();
@@ -41,6 +41,7 @@ function errorMessage(error: unknown): string {
 export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const labManager = dependencies.labManager ?? new LabManager();
   const demoFetch = dependencies.demoFetch ?? fetch;
+  const workspace = dependencies.workspace ?? createExerciseWorkspace();
   const app = Fastify({ logger: false, bodyLimit: 256 * 1024, trustProxy: false });
   app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "same-site" } });
   app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
@@ -81,14 +82,14 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   });
 
   app.get("/api/workspace/sql-injection", async () => ({
-    code: await readExerciseCode("sql-injection"),
+    code: await workspace.read("sql-injection"),
     file: "user-repository.js"
   }));
 
   app.put("/api/workspace/sql-injection", async (request, reply) => {
     const parsed = workspaceRequestSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Код должен быть строкой длиной не более 12000 символов." });
-    await writeExerciseCode("sql-injection", parsed.data.code);
+    await workspace.write("sql-injection", parsed.data.code);
     return { saved: true, file: "user-repository.js" };
   });
 
