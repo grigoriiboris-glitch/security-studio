@@ -116,7 +116,7 @@ async function probeHttpTarget(app: FastifyInstance, lessonId: LessonId, runId: 
     }
     case "business-logic":
       response = await request(base + "?total=1");
-      return { vulnerable: response.body.includes('"acceptedTotal":1'), evidence: ["HTTP order fixture submitted a manipulated synthetic total instead of the server catalog total."] };
+      return { vulnerable: response.json().acceptedTotal === 1, evidence: ["HTTP order fixture submitted a manipulated synthetic total instead of the server catalog total."] };
     case "prototype-pollution":
       response = await request(base + "?key=__proto__");
       return { vulnerable: response.body.includes('"polluted":true'), evidence: ["HTTP fixture checked a dangerous object key without modifying global JavaScript prototypes."] };
