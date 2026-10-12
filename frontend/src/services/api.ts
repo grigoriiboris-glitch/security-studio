@@ -21,6 +21,9 @@ export async function startLab(id: LabId): Promise<ActiveLab> {
 export async function stopLab(): Promise<void> {
   await http.post("/labs/stop");
 }
+export async function resetLab(): Promise<ActiveLab> {
+  return (await http.post("/labs/reset")).data.activeLab;
+}
 export async function runSqlInjectionDemo(): Promise<DemoResult> {
   return (await http.post("/labs/demo-sqli")).data;
 }
