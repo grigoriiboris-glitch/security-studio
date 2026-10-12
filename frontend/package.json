@@ -11,7 +11,7 @@
   "dependencies": {
     "@assistant-ui/ai-sdk": "^0.0.8",
     "@assistant-ui/vue": "^0.0.1",
-    "ai": "^7.0.0",
+    "ai": "7.0.8",
     "axios": "^1.11.0",
     "element-plus": "^2.14.7",
     "monaco-editor": "^0.57.0",
