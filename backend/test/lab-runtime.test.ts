@@ -35,7 +35,7 @@ const safeFixes: Record<LessonId, string> = {
   "insecure-deserialization": "const data = validateSchema(JSON.parse(input));"
 };
 
-describe("all 30 synthetic runtime labs", () => {
+describe("all 30 runtime labs", () => {
   const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
   afterEach(async () => { await Promise.all(apps.splice(0).map((app) => app.close())); });
   async function makeApp() {
@@ -45,7 +45,7 @@ describe("all 30 synthetic runtime labs", () => {
     return app;
   }
 
-  it("advertises all 30 lessons with an explicit synthetic-runtime disclosure", async () => {
+  it("advertises all 30 lessons and distinguishes controlled HTTP targets from SQLi integration", async () => {
     const app = await makeApp();
     const response = await app.inject({ method: "GET", url: "/api/labs/scenarios" });
     expect(response.statusCode).toBe(200);
@@ -55,6 +55,8 @@ describe("all 30 synthetic runtime labs", () => {
     expect(scenarios.every((s: { workflow: { exploitProbe: boolean; remediationCheck: boolean; runtimeRetest: boolean; reset: boolean } }) =>
       s.workflow.exploitProbe && s.workflow.remediationCheck && s.workflow.runtimeRetest && s.workflow.reset)).toBe(true);
     expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "runtime-ready")).toHaveLength(30);
+    expect(scenarios.filter((s: { target: string }) => s.target === "controlled-http-fixture")).toHaveLength(29);
+    expect(scenarios.find((s: { lessonId: string }) => s.lessonId === "sql-injection").target).toBe("juice-shop + synthetic-cycle");
     expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(0);
   });
 
