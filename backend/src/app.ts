@@ -32,6 +32,40 @@ const chatRequestSchema = z.object({
   code: z.string().max(12000).optional()
 });
 type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fetch; workspace?: ExerciseWorkspace };
+const httpTargetLessons = new Set<LessonId>(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]);
+async function probeHttpTarget(app: FastifyInstance, lessonId: LessonId, runId: string): Promise<{ vulnerable: boolean; evidence: string[] }> {
+  const base = "/api/labs/http-targets/" + lessonId + "/" + runId + "/fixture";
+  const request = async (url: string, method: "GET" | "POST" = "GET", payload?: unknown) =>
+    app.inject({ method, url, ...(payload === undefined ? {} : { payload }) });
+  let response;
+  switch (lessonId) {
+    case "xss-reflected":
+      response = await request(base + "?value=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E");
+      return { vulnerable: response.body.includes("<img src=x onerror=alert(1)>"), evidence: ["HTTP GET reflected payload; response was checked for raw versus escaped HTML."] };
+    case "xss-stored":
+      await request(base, "POST", { comment: "<img src=x onerror=alert(1)>" });
+      response = await request(base);
+      return { vulnerable: response.body.includes("<img src=x onerror=alert(1)>"), evidence: ["HTTP POST stored a harmless marker; HTTP GET checked the rendered response."] };
+    case "xss-dom":
+      response = await request(base);
+      return { vulnerable: response.body.includes(".innerHTML=value"), evidence: ["HTTP-served DOM fixture checked for innerHTML versus textContent sink. Browser JavaScript was not executed."] };
+    case "idor":
+      response = await request(base + "?id=bob-note");
+      return { vulnerable: response.statusCode === 200 && response.body.includes("BOB-PRIVATE-FIXTURE"), evidence: ["HTTP GET requested Bob's synthetic private object as the unprivileged lab user."] };
+    case "csrf":
+      response = await request(base, "POST", {});
+      return { vulnerable: response.statusCode === 200 && response.body.includes('"changed":true'), evidence: ["HTTP POST attempted a state change without a CSRF token."] };
+    case "path-traversal":
+      response = await request(base + "?path=..%2Fsecret.txt");
+      return { vulnerable: response.statusCode === 200 && response.body.includes("LAB-ONLY-SECRET-FIXTURE"), evidence: ["HTTP GET attempted traversal outside the synthetic fixture root."] };
+    case "ssrf":
+      response = await request(base + "?url=http%3A%2F%2Fmetadata.lab%2Fidentity");
+      return { vulnerable: response.statusCode === 200 && response.body.includes("LAB-METADATA-FIXTURE"), evidence: ["HTTP GET requested a synthetic metadata destination; no outbound network request is made."] };
+    default:
+      return { vulnerable: true, evidence: ["No HTTP probe is registered for this lesson."] };
+  }
+}
+
 
 function sessionIdFrom(value: string | undefined): string {
   if (!value) return randomUUID();
@@ -93,7 +127,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.post("/api/labs/scenarios/:lessonId/reset", async (request, reply) => {
     const parsed = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
     if (!parsed.success) return reply.code(400).send({ error: "Неизвестный урок." });
-    return { run: createLabRun(parsed.data), mode: "synthetic", codeExecution: false };
+    const run = createLabRun(parsed.data);\n    const mode = httpTargetLessons.has(parsed.data) ? "controlled-http" : "synthetic";\n    if (mode === "controlled-http") await app.inject({ method: "POST", url: "/api/labs/http-targets/" + parsed.data + "/" + run.runId + "/prepare" });\n    return { run, mode, codeExecution: false };
   });
 
   app.get("/api/labs/scenarios/:lessonId/:runId", async (request, reply) => {
@@ -111,7 +145,9 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
     const result = probeLabRun(lesson.data, params.runId);
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
-    return result;
+    if (!httpTargetLessons.has(lesson.data)) return result;
+    const probe = await probeHttpTarget(app, lesson.data, params.runId);
+    return { ...result, vulnerable: probe.vulnerable, passed: probe.vulnerable, message: probe.vulnerable ? "HTTP exploit probe подтвердил уязвимое поведение контролируемой мишени." : "HTTP exploit probe не воспроизвёл уязвимость; проверьте исходное состояние.", evidence: ["Контролируемая HTTP-мишень Security Studio.", ...probe.evidence, "Код из редактора не исполнялся; внешние хосты не вызываются."] };
   });
 
   app.post("/api/labs/scenarios/:lessonId/:runId/fix", async (request, reply) => {
@@ -121,6 +157,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId || !body.success) return reply.code(400).send({ error: "Передайте lessonId, runId и code длиной не более 12000 символов." });
     const result = fixLabRun(lesson.data, params.runId, body.data.code);
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    if (result.passed && httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/fix" });
     return result;
   });
 
@@ -130,7 +167,10 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
     const result = retestLabRun(lesson.data, params.runId);
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
-    return result;
+    if (!httpTargetLessons.has(lesson.data) || result.phase !== "passed") return result;
+    const probe = await probeHttpTarget(app, lesson.data, params.runId);
+    const passed = !probe.vulnerable;
+    return { ...result, vulnerable: probe.vulnerable, passed, message: passed ? "HTTP retest пройден: контрольный запрос больше не воспроизводит уязвимость." : "HTTP retest провален: контрольный запрос всё ещё воспроизводит уязвимость.", evidence: ["Повторён тот же контрольный HTTP probe после применения защиты.", ...probe.evidence, "Это локальная fixture-мишень, а не проверка произвольного приложения."] };
   });
 
   app.post("/api/labs/scenarios/:lessonId/:runId/reset", async (request, reply) => {
