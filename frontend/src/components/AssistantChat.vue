@@ -1,22 +1,38 @@
 <script setup lang="ts">
+import { onMounted, shallowRef } from "vue";
+import type { UIMessage } from "ai";
 import {
   AuiConfig, AuiProvider, ComposerPrimitiveInput, ComposerPrimitiveSend,
   MessagePrimitiveParts, ThreadPrimitiveMessages, ThreadPrimitiveViewport
 } from "@assistant-ui/vue";
 import { AISDKChat, AssistantChatTransport } from "@assistant-ui/ai-sdk";
 import { ElMessage } from "element-plus";
+import { fetchChatHistory } from "../services/api";
 import { useLabsStore } from "../stores/labs";
 
 const labs = useLabsStore();
-const config = AuiConfig({
-  threads: AISDKChat({
-    transport: new AssistantChatTransport({
-      api: "/api/assistant/chat",
-      body: () => ({ lessonId: "sql-injection", code: labs.editorCode.slice(0, 12000) }),
-      credentials: "same-origin"
-    }),
-    onError: () => ElMessage.error("AI недоступен. Проверьте OPENCODE_GO_API_KEY в .env.")
-  })
+const conversationId = "security-studio-sql-injection";
+const config = shallowRef<ReturnType<typeof AuiConfig> | null>(null);
+
+onMounted(async () => {
+  let messages: UIMessage[] = [];
+  try {
+    messages = await fetchChatHistory(conversationId);
+  } catch {
+    // Start with an empty chat if the local API/history is temporarily unavailable.
+  }
+  config.value = AuiConfig({
+    threads: AISDKChat({
+      id: conversationId,
+      messages,
+      transport: new AssistantChatTransport({
+        api: "/api/assistant/chat",
+        body: () => ({ lessonId: "sql-injection", code: labs.editorCode.slice(0, 12000) }),
+        credentials: "same-origin"
+      }),
+      onError: () => ElMessage.error("AI недоступен. Проверьте OPENCODE_GO_API_KEY в .env.")
+    })
+  });
 });
 </script>
 <template>
@@ -25,7 +41,7 @@ const config = AuiConfig({
       <div><div class="eyebrow">AI TUTOR</div><h2>Помощник по коду</h2></div>
       <el-tag effect="plain" type="info">MiMo Flash</el-tag>
     </div>
-    <AuiProvider :config="config">
+    <AuiProvider v-if="config" :config="config">
       <div class="chat-layout">
         <ThreadPrimitiveViewport class="chat-viewport" aria-label="Сообщения чата">
           <ThreadPrimitiveMessages><div class="chat-message"><MessagePrimitiveParts /></div></ThreadPrimitiveMessages>
@@ -36,6 +52,7 @@ const config = AuiConfig({
         </div>
       </div>
     </AuiProvider>
-    <p class="chat-note">Передаются текущий урок и фрагмент кода. Ключ API остаётся на backend.</p>
+    <div v-else class="chat-layout chat-loading" role="status">Загружаем историю диалога…</div>
+    <p class="chat-note">История диалога сохраняется в локальной SQLite-базе. Передаются текущий урок и фрагмент кода; ключ API остаётся на backend.</p>
   </section>
 </template>
