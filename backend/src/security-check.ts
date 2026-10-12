@@ -39,7 +39,7 @@ const rules: Partial<Record<LessonId, Rule>> = {
   "broken-access-control": { safe: /requireRole\s*\(|authorize\s*\(|checkPermission\s*\(/i, unsafe: /app\.(get|post|put|patch|delete)\s*\(\s*["'][^"']*admin[^"']*["']\s*,\s*(?!\s*(?:requireRole|authorize|checkPermission)\b)/i, safeEvidence: "Найден middleware авторизации.", unsafeEvidence: "Административный маршрут без видимой проверки роли." },
   "broken-authentication": { safe: /argon2\.verify|bcrypt\.compare|scryptVerify|verifyPassword\s*\(/i, unsafe: /password\s*===\s*user\.password|user\.password\s*===\s*password/i, safeEvidence: "Найден verifier хеша пароля.", unsafeEvidence: "Пароль сравнивается напрямую." },
   "session-fixation": { safe: /session\.regenerate|rotateSession|regenerateSession/i, unsafe: /session\.userId\s*=\s*user\.id/i, safeEvidence: "Найдена ротация сессии.", unsafeEvidence: "Сессия назначается без видимой ротации." },
-  "password-reset": { safe: /createRandomExpiringSingleUseToken|randomBytes|randomUUID/i, unsafe: /resetToken\s*=\s*user\.resetToken|token\s*=\s*user\.resetToken/i, safeEvidence: "Найден генератор случайного токена; TTL и одноразовость требуют отдельных тестов.", unsafeEvidence: "Используется существующий/предсказуемый токен." },
+  "password-reset": { safe: /createRandomExpiringSingleUseToken|randomBytes|randomUUID/i, unsafe: /resetToken\s*=\s*user\.resetToken|token\s*=\s*user\.resetToken|(?:resetToken|token)\s*=\s*(?:Math\.random\s*\(|Date\.now\s*\(|["'][^"']{0,80}["']|user\.id\b)/i, safeEvidence: "Найден генератор случайного токена; TTL и одноразовость требуют отдельных тестов.", unsafeEvidence: "Используется существующий/предсказуемый токен." },
   ssrf: { safe: /validateAllowlistedHttpsUrl|allowlistedUrl|assertAllowedDestination/i, unsafe: /fetch\s*\(\s*req\.(body|query)\.url|axios\.(get|request)\s*\(\s*req\.(body|query)\.url/i, safeEvidence: "Найден allowlist назначения.", unsafeEvidence: "Сетевой запрос использует URL из ввода напрямую." },
   "path-traversal": { safe: /basename\s*\(|isPathInside|safeResolveWithin/i, unsafe: /\b(?:readFile|createReadStream|sendFile)\s*\(\s*(?:(?:join|resolve)\s*\([^;]{0,200}req\.(?:query|params|body)|req\.(?:query|params|body)\.)/i, safeEvidence: "Найдено ограничение пути.", unsafeEvidence: "Путь строится из пользовательского ввода." },
   "file-upload": { safe: /saveValidatedFileOutsideWebRoot|validateFileContent|randomUUID\s*\(/i, unsafe: /join\s*\(\s*publicDir\s*,\s*file\.(?:filename|originalname|name|path)\b/i, safeEvidence: "Найдена проверка файла/случайное имя/хранение вне web-root.", unsafeEvidence: "Оригинальное имя используется в публичном каталоге." },
@@ -68,6 +68,11 @@ export function checkLessonFix(lessonId: LessonId, code: string): SecurityCheckR
   if (!rule) return fail("Для урока не настроено правило проверки.", ["Нет verifier для выбранного урока."]);
   const source = removeComments(code);
   let hasUnsafe = rule.unsafe.test(source);
+  if (lessonId === "cors") {
+    const reflectedAlias = /\b(?:const|let|var)\s+origin\s*=\s*req\.headers\.origin[\s\S]{0,200}["']Access-Control-Allow-Origin["']\s*,\s*origin\b/i.test(source);
+    const guardedReflection = /if\s*\(\s*allowedOrigins\.has\s*\(\s*origin\s*\)\s*\)\s*(?:\{[\s\S]{0,200}?\b(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin|(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin)/i.test(source);
+    if (reflectedAlias && !guardedReflection) hasUnsafe = true;
+  }
   if (lessonId === "session-fixation") {
     const rotateAt = source.search(/session\.regenerate|rotateSession|regenerateSession/i);
     const assignAt = source.search(/session\.userId\s*=\s*user\.id/i);

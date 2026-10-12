@@ -69,3 +69,31 @@ describe("verifier rejects mixed safe and vulnerable code", () => {
     expect(result.passed, id + ": " + result.message + " " + result.evidence.join(" ")).toBe(false);
   });
 });
+
+
+describe("additional verifier bypass regressions", () => {
+  it("rejects an untrusted Origin alias when the allowlist check is unrelated", () => {
+    const code = [
+      "const origin = req.headers.origin;",
+      "if (allowedOrigins.has(safeOrigin)) audit(safeOrigin);",
+      'reply.header("Access-Control-Allow-Origin", origin);'
+    ].join("\\n");
+    expect(checkLessonFix("cors", code).passed).toBe(false);
+  });
+
+  it("accepts reflected Origin only when the header assignment is inside the allowlist guard", () => {
+    const code = [
+      "const origin = req.headers.origin;",
+      'if (allowedOrigins.has(origin)) { reply.header("Access-Control-Allow-Origin", origin); }'
+    ].join("\\n");
+    expect(checkLessonFix("cors", code).passed).toBe(true);
+  });
+
+  it("rejects a predictable password-reset token even when randomBytes is used elsewhere", () => {
+    const code = [
+      "const unused = randomBytes(32);",
+      "const token = Date.now().toString();"
+    ].join("\\n");
+    expect(checkLessonFix("password-reset", code).passed).toBe(false);
+  });
+});
