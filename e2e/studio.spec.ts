@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
+  let savedProgress: { editorCode: string; selectedLabId: string; checkResult: unknown } | null = null;
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -11,6 +12,23 @@ test.beforeEach(async ({ page }) => {
     }
     if (url.pathname.endsWith("/labs/status")) {
       await route.fulfill({ json: { activeLab: null, available: true } });
+      return;
+    }
+    if (url.pathname.endsWith("/progress/sql-injection") && request.method() === "GET") {
+      await route.fulfill({ json: { progress: savedProgress } });
+      return;
+    }
+    if (url.pathname.endsWith("/progress/sql-injection") && request.method() === "PUT") {
+      savedProgress = request.postDataJSON() as typeof savedProgress;
+      await route.fulfill({ json: { progress: savedProgress } });
+      return;
+    }
+    if (url.pathname.endsWith("/workspace/sql-injection") && request.method() === "GET") {
+      await route.fulfill({ json: { code: null, file: "user-repository.js" } });
+      return;
+    }
+    if (url.pathname.endsWith("/workspace/sql-injection") && request.method() === "PUT") {
+      await route.fulfill({ json: { saved: true, file: "user-repository.js" } });
       return;
     }
     await route.fulfill({ json: { labs: [] } });
@@ -50,4 +68,43 @@ test("lab selector opens a visible option list", async ({ page }) => {
   const box = await option.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.height).toBeGreaterThan(0);
+});
+
+test("saves code, checks it, and restores the lesson after reload", async ({ page }) => {
+  let workspaceCode = "";
+  await page.route("**/api/workspace/sql-injection", async (route) => {
+    const request = route.request();
+    if (request.method() === "PUT") {
+      workspaceCode = (request.postDataJSON() as { code: string }).code;
+      await route.fulfill({ json: { saved: true, file: "user-repository.js" } });
+      return;
+    }
+    await route.fulfill({ json: { code: workspaceCode || null, file: "user-repository.js" } });
+  });
+  await page.route("**/api/labs/check", async (route) => {
+    await route.fulfill({
+      json: { passed: true, message: "Проверка пройдена.", evidence: ["Код проверен backend."] }
+    });
+  });
+
+  await page.goto("/");
+  const editor = page.locator(".monaco-editor").first();
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.press("Control+A");
+  const code = 'db.query("SELECT * FROM users WHERE name = ?", [username]);';
+  await page.keyboard.type(code);
+  await page.getByRole("button", { name: "Сохранить код" }).click();
+  await expect.poll(() => workspaceCode).toContain("[username]");
+  await page.getByRole("button", { name: "Проверить исправление" }).click();
+  await expect(page.getByText("Проверка пройдена.", { exact: true }).first()).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator(".monaco-editor").first()).toBeVisible();
+  await expect.poll(async () => {
+    await page.locator(".monaco-editor").first().click();
+    await page.keyboard.press("Control+A");
+    await page.keyboard.press("Control+C");
+    return await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
+  }).toContain("[username]");
 });
