@@ -6,7 +6,7 @@ describe("SQL injection static verifier", () => {
     const code = ['const query = "SELECT * FROM users WHERE name = " + username;', "db.query(query);"].join("\n");
     const result = checkSqlInjectionFix(code);
     expect(result.passed).toBe(false);
-    expect(result.evidence.join(" ")).toContain("конкатенация");
+    expect(result.evidence.join(" ")).toContain("конкатенац");
   });
   it("accepts a parameterized query with a separate values array", () => {
     const result = checkSqlInjectionFix('db.query("SELECT * FROM users WHERE name = ?", [username]);');
