@@ -15,7 +15,7 @@ docker network create --internal "$NETWORK" >/dev/null
 run_lab() {
   local mode="$1" host_port="$2" container_port="$3" path="$4"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  docker run -d --rm --init \
+  docker run -d --init \
     --name "$CONTAINER" \
     --label security-studio.managed=true \
     --label "security-studio.lab=$mode" \
