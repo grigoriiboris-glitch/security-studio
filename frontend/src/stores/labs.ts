@@ -33,15 +33,16 @@ export const useLabsStore = defineStore("labs", () => {
     catch (error) { lastError.value = messageFrom(error, "Не удалось остановить лабораторию."); }
     finally { busy.value = false; }
   }
-  async function verifyCode() {
+  async function verifyCode(lessonId: string = lessons[0].id) {
     busy.value = true;
     lastError.value = "";
-    try { checkResult.value = await checkCode(editorCode.value); }
+    try { checkResult.value = await checkCode(editorCode.value, lessonId); }
     catch (error) { lastError.value = messageFrom(error, "Проверка кода не выполнена."); }
     finally { busy.value = false; }
   }
-  function loadExample(kind: "vulnerable" | "fixed") {
-    editorCode.value = kind === "fixed" ? lessons[0].fixedCode : lessons[0].vulnerableCode;
+  function loadExample(kind: "vulnerable" | "fixed", lessonId: string = lessons[0].id) {
+    const lesson = lessons.find((item) => item.id === lessonId) ?? lessons[0];
+    editorCode.value = kind === "fixed" ? lesson.fixedCode : lesson.vulnerableCode;
     checkResult.value = null;
   }
   return { selectedLabId, activeLab, editorCode, checkResult, busy, lastError, refresh, startSelectedLab, stopActiveLab, verifyCode, loadExample };
