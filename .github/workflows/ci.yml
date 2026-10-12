@@ -28,6 +28,10 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+      - name: Install Chromium for browser tests
+        run: npx playwright install --with-deps chromium
+      - name: Browser end-to-end tests
+        run: npm run test:e2e
 
   labs-image:
     name: Build unified labs image

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="$1"
-NETWORK="security-studio-ci-bridge"
+NETWORK="security-studio-ci-internal"
 CONTAINER="security-studio-ci-lab"
 
 cleanup() {
@@ -10,7 +10,16 @@ cleanup() {
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-docker network create "$NETWORK" >/dev/null
+docker network create --internal "$NETWORK" >/dev/null
+
+assert_no_egress() {
+  if docker exec "$CONTAINER" node -e 'const c=new AbortController();const t=setTimeout(()=>c.abort(),4000);fetch("https://example.com",{signal:c.signal}).then(()=>{console.error("Unexpected outbound network access");process.exitCode=1},()=>{process.exitCode=0}).finally(()=>clearTimeout(t))'; then
+    echo "PASS: $1 cannot reach the public internet"
+  else
+    echo "FAIL: $1 has outbound network access" >&2
+    return 1
+  fi
+}
 
 run_lab() {
   local mode="$1" host_port="$2" container_port="$3" path="$4"
@@ -35,6 +44,7 @@ run_lab() {
   for attempt in $(seq 1 600); do
     if curl --silent --show-error --fail "http://127.0.0.1:$host_port$path" >/dev/null 2>&1; then
       echo "PASS: $mode answered HTTP on port $host_port"
+      assert_no_egress "$mode"
       docker rm -f "$CONTAINER" >/dev/null
       return 0
     fi
