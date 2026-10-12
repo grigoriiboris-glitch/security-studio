@@ -233,7 +233,7 @@ async function toggleLab() {
           </div>
 
           <div class="assistant-column">
-            <AssistantChat />
+            <AssistantChat :key="lesson.id" :lesson-id="lesson.id" />
             <section class="context-card">
               <div class="eyebrow">КОНТЕКСТ AI</div>
               <div class="context-row"><span>Урок</span><strong>{{ lesson.title }}</strong></div>
