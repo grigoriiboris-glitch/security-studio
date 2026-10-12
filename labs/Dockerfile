@@ -34,6 +34,7 @@ RUN set -eux; \
   git -C /opt/nodegoat checkout --detach FETCH_HEAD; \
   cd /opt/nodegoat; \
   PATH="/opt/node12/bin:$PATH" CYPRESS_INSTALL_BINARY=0 npm install --unsafe-perm --no-audit --no-fund; \
+  mkdir -p /opt/juice-shop/logs; \
   chown -R mongodb:mongodb /opt/nodegoat /opt/juice-shop; \
   rm -rf /tmp/node22* /tmp/node12* /tmp/juice-shop.tgz /var/lib/apt/lists/* /opt/nodegoat/.git
 
