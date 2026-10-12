@@ -10,6 +10,8 @@
 Frontend: http://127.0.0.1:5173  
 API health: http://127.0.0.1:3001/api/healthz
 
+Учебный код сохраняется в `data/workspaces/sql-injection/user-repository.js` отдельно от исходников OWASP-лабораторий. Чтобы использовать другую локальную папку, задайте `SECURITY_STUDIO_WORKSPACE_DIR` для backend. Клиент может сохранить только фиксированный файл урока; передать произвольный путь через API нельзя.
+
 Собрать образ учебной среды:
 
     docker build -f labs/Dockerfile -t security-labs:dev labs
