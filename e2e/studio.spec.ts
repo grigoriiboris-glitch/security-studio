@@ -10,6 +10,10 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({ json: { status: "ok", aiConfigured: false, model: "test-model" } });
       return;
     }
+    if (url.pathname.endsWith("/assistant/history")) {
+      await route.fulfill({ json: { messages: [] } });
+      return;
+    }
     if (url.pathname.endsWith("/labs/status")) {
       await route.fulfill({ json: { activeLab: null, available: true } });
       return;
