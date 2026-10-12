@@ -68,7 +68,7 @@ export class LabManager implements LabManagerContract {
       "--security-opt=no-new-privileges:true", "--cap-drop=ALL", "--read-only",
       "--tmpfs", "/tmp:rw,nosuid,nodev,size=128m,uid=999,gid=999",
       "--tmpfs", "/data/db:rw,nosuid,nodev,size=256m,uid=999,gid=999",
-      "--tmpfs", "/opt/juice-shop/data:rw,nosuid,nodev,size=128m,uid=999,gid=999",
+      "--tmpfs", "/opt/juice-shop/logs:rw,nosuid,nodev,size=32m,uid=999,gid=999",
       "--env", "NODE_ENV=production",
       "--env", "MONGODB_URI=mongodb://127.0.0.1:27017/nodegoat",
       config.labsImage, id
