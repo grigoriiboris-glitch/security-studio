@@ -43,7 +43,8 @@ test("editor submits changed code to backend checker and displays its result", a
 test("lab selector opens a visible option list", async ({ page }) => {
   await page.goto("/");
   const selector = page.getByRole("combobox", { name: "Выбор учебного приложения" });
-  await selector.click();
+  await selector.focus();
+  await page.keyboard.press("ArrowDown");
   const option = page.getByRole("option", { name: "OWASP NodeGoat" });
   await expect(option).toBeVisible();
   const box = await option.boundingBox();
