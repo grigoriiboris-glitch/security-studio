@@ -10,7 +10,7 @@
 - @assistant-ui/ai-sdk + AI SDK — runtime чата и потоковые сообщения.
 - Fastify — локальный API и серверный прокси OpenCode Go.
 - SQLite (`node:sqlite`) — локальное хранение прогресса уроков и сообщений AI-диалогов.
-- Изолированная файловая рабочая область — сохранённый фрагмент урока в фиксированный файл `data/workspaces/sql-injection/user-repository.js`; API не принимает путь от клиента.
+- Каталог из 30 уроков веб-безопасности; ID урока проходит allowlist-проверку на backend. Для каждого урока отдельная рабочая область `data/workspaces/<lesson-id>/solution.js`; путь клиентом не задаётся.
 - Единый образ security-labs — Juice Shop, NodeGoat и MongoDB; активна одна лаборатория.
 
 ## AI
