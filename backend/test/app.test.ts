@@ -1,8 +1,12 @@
 import { createHash } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { saveChatMessages } from "../src/database.js";
 import { buildApp } from "../src/app.js";
 import type { LabManagerContract, LabId } from "../src/lab-manager.js";
+import { createExerciseWorkspace, type ExerciseWorkspace } from "../src/workspace.js";
 
 function fakeLabs(): LabManagerContract {
   let active: LabId | null = null;
@@ -35,8 +39,8 @@ describe("Security Studio API", () => {
   const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
   afterEach(async () => { await Promise.all(apps.splice(0).map((app) => app.close())); });
 
-  async function makeApp(demoFetch?: typeof fetch) {
-    const app = buildApp({ labManager: fakeLabs(), demoFetch });
+  async function makeApp(demoFetch?: typeof fetch, workspace?: ExerciseWorkspace) {
+    const app = buildApp({ labManager: fakeLabs(), demoFetch, workspace });
     await app.ready();
     apps.push(app);
     return app;
@@ -147,6 +151,31 @@ describe("Security Studio API", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json().messages).toEqual(messages);
     expect((await app.inject({ method: "GET", url: "/api/assistant/history" })).statusCode).toBe(400);
+  });
+
+  it("saves and restores code in the fixed exercise workspace", async () => {
+    const root = await mkdtemp(join(tmpdir(), "security-studio-workspace-"));
+    try {
+      const app = await makeApp(undefined, createExerciseWorkspace(root));
+      const initial = await app.inject({ method: "GET", url: "/api/workspace/sql-injection" });
+      expect(initial.statusCode).toBe(200);
+      expect(initial.json()).toMatchObject({ code: null, file: "user-repository.js" });
+
+      const code = 'db.query("SELECT * FROM users WHERE name = ?", [username]);';
+      const saved = await app.inject({
+        method: "PUT", url: "/api/workspace/sql-injection", payload: { code }
+      });
+      expect(saved.statusCode).toBe(200);
+      expect(saved.json()).toEqual({ saved: true, file: "user-repository.js" });
+
+      const loaded = await app.inject({ method: "GET", url: "/api/workspace/sql-injection" });
+      expect(loaded.json().code).toBe(code);
+      expect((await app.inject({
+        method: "PUT", url: "/api/workspace/sql-injection", payload: { code: "x".repeat(12001) }
+      })).statusCode).toBe(400);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   it("validates chat payload before contacting upstream", async () => {
