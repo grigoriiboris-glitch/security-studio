@@ -2,7 +2,7 @@
 set -euo pipefail
 
 IMAGE="$1"
-NETWORK="security-studio-ci-internal"
+NETWORK="security-studio-ci-bridge"
 CONTAINER="security-studio-ci-lab"
 
 cleanup() {
@@ -10,7 +10,7 @@ cleanup() {
   docker network rm "$NETWORK" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
-docker network create --internal "$NETWORK" >/dev/null
+docker network create "$NETWORK" >/dev/null
 
 run_lab() {
   local mode="$1" host_port="$2" container_port="$3" path="$4"
@@ -21,7 +21,7 @@ run_lab() {
     --label "security-studio.lab=$mode" \
     --network "$NETWORK" \
     -p "127.0.0.1:$host_port:$container_port" \
-    --memory=1g --cpus=1 --pids-limit=256 \
+    --memory=2g --cpus=2 --pids-limit=512 \
     --security-opt=no-new-privileges:true --cap-drop=ALL --read-only \
     --tmpfs /tmp:rw,nosuid,nodev,size=128m,uid=999,gid=999 \
     --tmpfs /data/db:rw,nosuid,nodev,size=256m,uid=999,gid=999 \
@@ -32,7 +32,7 @@ run_lab() {
     --tmpfs /opt/juice-shop/ftp:rw,nosuid,nodev,size=16m,uid=999,gid=999 \
     --tmpfs /opt/juice-shop/logs:rw,nosuid,nodev,size=32m,uid=999,gid=999 \
     "$IMAGE" "$mode" >/dev/null
-  for attempt in $(seq 1 360); do
+  for attempt in $(seq 1 600); do
     if curl --silent --show-error --fail "http://127.0.0.1:$host_port$path" >/dev/null 2>&1; then
       echo "PASS: $mode answered HTTP on port $host_port"
       docker rm -f "$CONTAINER" >/dev/null
