@@ -32,7 +32,7 @@ const chatRequestSchema = z.object({
   code: z.string().max(12000).optional()
 });
 type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fetch; workspace?: ExerciseWorkspace };
-const httpTargetLessons = new Set<LessonId>(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]);
+const httpTargetLessons = new Set<LessonId>(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"]);
 async function probeHttpTarget(app: FastifyInstance, lessonId: LessonId, runId: string): Promise<{ vulnerable: boolean; evidence: string[] }> {
   const base = "/api/labs/http-targets/" + lessonId + "/" + runId + "/fixture";
   const request = async (url: string, method: "GET" | "POST" = "GET", payload?: { comment?: string }) =>
@@ -61,6 +61,74 @@ async function probeHttpTarget(app: FastifyInstance, lessonId: LessonId, runId: 
     case "ssrf":
       response = await request(base + "?url=http%3A%2F%2Fmetadata.lab%2Fidentity");
       return { vulnerable: response.statusCode === 200 && response.body.includes("LAB-METADATA-FIXTURE"), evidence: ["HTTP GET requested a synthetic metadata destination; no outbound network request is made."] };
+
+    case "broken-access-control":
+      response = await request(base + "?action=admin");
+      return { vulnerable: response.statusCode === 200 && response.body.includes("LAB-ADMIN-FIXTURE"), evidence: ["HTTP request called the synthetic admin action as a basic user; no real privileged system is accessed."] };
+    case "broken-authentication":
+      response = await request(base + "?password=wrong-lab-password");
+      return { vulnerable: response.statusCode === 200 && response.body.includes('"authenticated":true'), evidence: ["HTTP login fixture submitted an invalid synthetic password; no real account is used."] };
+    case "session-fixation":
+      response = await request(base + "?sessionId=attacker-known-session");
+      return { vulnerable: response.body.includes('"before":"attacker-known-session","after":"attacker-known-session"'), evidence: ["HTTP response compared the pre-authentication fixture session ID with the post-login ID."] };
+    case "password-reset":
+      response = await request(base + "?token=known-reset-token");
+      return { vulnerable: response.statusCode === 200 && response.body.includes('"resetAllowed":true'), evidence: ["HTTP reset endpoint tested a fixed synthetic token; no email or account reset is triggered."] };
+    case "file-upload":
+      response = await request(base + "?filename=..%2Fpublic%2Flab.svg");
+      return { vulnerable: response.statusCode === 200 && response.body.includes('"accepted":true') && response.body.includes("LAB-UPLOAD-FIXTURE"), evidence: ["HTTP upload-policy fixture checked traversal-like filename and active-content extension; no file is written."] };
+    case "command-injection":
+      response = await request(base + "?input=hello%3Bmarker");
+      return { vulnerable: response.body.includes('"simulatedSecondCommand":true'), evidence: ["HTTP fixture recognized a shell metacharacter as a simulated second command; no OS command was executed."] };
+    case "xxe":
+      response = await request(base + "?entity=lab-file");
+      return { vulnerable: response.body.includes('"resolvedExternalEntity":true'), evidence: ["HTTP XML-policy fixture reports only a synthetic entity marker; no XML parser or filesystem is invoked."] };
+    case "ssti":
+      response = await request(base + "?template=%7B%7B7%2A7%7D%7D");
+      return { vulnerable: response.body.includes('"evaluated":true') && response.body.includes('"rendered":"49"'), evidence: ["HTTP template fixture simulates a harmless arithmetic expression; no template engine evaluates user code."] };
+    case "open-redirect":
+      response = await request(base + "?next=https%3A%2F%2Fattacker.lab.example");
+      return { vulnerable: response.statusCode === 302 && response.headers.location === "https://attacker.lab.example", evidence: ["HTTP redirect response checked a synthetic external destination without following it."] };
+    case "cors":
+      response = await request(base + "?origin=https%3A%2F%2Fattacker.lab.example");
+      return { vulnerable: response.headers["access-control-allow-origin"] === "https://attacker.lab.example" && response.headers["access-control-allow-credentials"] === "true", evidence: ["HTTP CORS fixture sent an untrusted synthetic Origin; no browser credentials are used."] };
+    case "clickjacking":
+      response = await request(base);
+      return { vulnerable: response.body.includes('"framed":true'), evidence: ["HTTP fixture reports whether its framing policy permits embedding; no hostile page is loaded."] };
+    case "security-headers":
+      response = await request(base);
+      return { vulnerable: response.body.includes('"headersConfigured":false'), evidence: ["HTTP fixture checks the lesson-specific baseline policy state; framework defaults are not counted as the lesson fix."] };
+    case "secrets-exposure":
+      response = await request(base + "?field=apiKey");
+      return { vulnerable: response.body.includes("LAB-SYNTHETIC-SECRET-DO-NOT-USE"), evidence: ["HTTP response queried a synthetic secret field; no real secret is present."] };
+    case "sensitive-data":
+      response = await request(base);
+      return { vulnerable: response.body.includes("passwordHash") || response.body.includes("mfaRecovery"), evidence: ["HTTP user response checked for synthetic private fields that should not be serialized."] };
+    case "jwt-validation":
+      response = await request(base + "?token=invalid-lab-token");
+      return { vulnerable: response.statusCode === 200 && response.body.includes('"accepted":true'), evidence: ["HTTP auth fixture submitted a fixed invalid token; no JWT grants access to any real resource."] };
+    case "mass-assignment":
+      response = await request(base + "?role=admin");
+      return { vulnerable: response.body.includes('"role":"admin"'), evidence: ["HTTP fixture attempted to set a protected role field through query input."] };
+    case "rate-limiting": {
+      const attempts = await Promise.all(Array.from({ length: 5 }, () => request(base)));
+      return { vulnerable: attempts.every((item) => item.statusCode === 200), evidence: ["Five HTTP requests were sent to the isolated login-rate fixture; no credentials are attempted."] };
+    }
+    case "business-logic":
+      response = await request(base + "?total=1");
+      return { vulnerable: response.body.includes('"acceptedTotal":1'), evidence: ["HTTP order fixture submitted a manipulated synthetic total instead of the server catalog total."] };
+    case "prototype-pollution":
+      response = await request(base + "?key=__proto__");
+      return { vulnerable: response.body.includes('"polluted":true'), evidence: ["HTTP fixture checked a dangerous object key without modifying global JavaScript prototypes."] };
+    case "nosql-injection":
+      response = await request(base + "?username=%5Bobject%5D");
+      return { vulnerable: response.body.includes('"bypassed":true'), evidence: ["HTTP fixture simulated an object/operator-shaped username; no database query is executed."] };
+    case "ldap-injection":
+      response = await request(base + "?username=%2A%29%28uid%3D%2A%29");
+      return { vulnerable: response.body.includes('"broadenedSearch":true'), evidence: ["HTTP fixture modeled LDAP filter broadening using synthetic match counts; no LDAP server is contacted."] };
+    case "insecure-deserialization":
+      response = await request(base + "?type=admin");
+      return { vulnerable: response.statusCode === 200 && response.body.includes("LAB-DESERIALIZATION-FIXTURE"), evidence: ["HTTP fixture simulated acceptance of an unexpected type; no object deserialization occurs."] };
     default:
       return { vulnerable: true, evidence: ["No HTTP probe is registered for this lesson."] };
   }
