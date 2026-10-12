@@ -85,7 +85,7 @@ describe("additional verifier bypass regressions", () => {
     const code = [
       "const origin = req.headers.origin;",
       'if (allowedOrigins.has(origin)) { reply.header("Access-Control-Allow-Origin", origin); }'
-    ].join("\\n");
+    ].join("\n");
     expect(checkLessonFix("cors", code).passed).toBe(true);
   });
 
@@ -93,7 +93,7 @@ describe("additional verifier bypass regressions", () => {
     const code = [
       "const unused = randomBytes(32);",
       "const token = Date.now().toString();"
-    ].join("\\n");
+    ].join("\n");
     expect(checkLessonFix("password-reset", code).passed).toBe(false);
   });
 });
