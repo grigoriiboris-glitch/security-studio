@@ -1,5 +1,5 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 const workspaceRoot = resolve(process.env.SECURITY_STUDIO_WORKSPACE_DIR ?? "data/workspaces");
 const exerciseFiles = {
@@ -10,7 +10,8 @@ export type ExerciseId = keyof typeof exerciseFiles;
 
 function exercisePath(exerciseId: ExerciseId): string {
   const path = resolve(workspaceRoot, exerciseFiles[exerciseId]);
-  if (!path.startsWith(workspaceRoot + "/")) {
+  const relativePath = relative(workspaceRoot, path);
+  if (!relativePath || relativePath.startsWith("..") || isAbsolute(relativePath)) {
     throw new Error("Путь учебного файла выходит за пределы рабочей области.");
   }
   return path;
