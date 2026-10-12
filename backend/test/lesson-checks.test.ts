@@ -20,8 +20,8 @@ const cases: Array<{ id: LessonId; vulnerable: string; fixed: string }> = [
   { id: "ssti", vulnerable: "renderTemplate(req.body.template, data);", fixed: 'renderTemplate("welcome", { name: String(req.body.name) });' },
   { id: "open-redirect", vulnerable: "res.redirect(req.query.next);", fixed: "res.redirect(allowedLocalPath(req.query.next) ?? \"/\");" },
   { id: "cors", vulnerable: 'res.header("Access-Control-Allow-Origin", req.headers.origin);', fixed: "if (allowedOrigins.has(origin)) res.header(\"Access-Control-Allow-Origin\", origin);" },
-  { id: "clickjacking", vulnerable: 'res.sendFile("account.html");', fixed: 'res.setHeader("Content-Security-Policy", "frame-ancestors \'none\'"); res.sendFile("account.html");' },
-  { id: "security-headers", vulnerable: "app.use((req, res, next) => next());", fixed: "app.use(helmet());" },
+  { id: "clickjacking", vulnerable: 'res.setHeader("X-Frame-Options", "ALLOWALL"); res.sendFile("account.html");', fixed: 'res.setHeader("Content-Security-Policy", "frame-ancestors \'none\'"); res.sendFile("account.html");' },
+  { id: "security-headers", vulnerable: "app.use(helmet({ contentSecurityPolicy: false, frameguard: false }));", fixed: "app.use(helmet());" },
   { id: "secrets-exposure", vulnerable: 'const apiKey = "prod-secret-123";', fixed: "const apiKey = process.env.API_KEY;" },
   { id: "sensitive-data", vulnerable: "return res.json(user);", fixed: "return res.json({ id: user.id, name: user.name, email: user.email });" },
   { id: "jwt-validation", vulnerable: "const claims = jwt.decode(token);", fixed: "const claims = jwt.verify(token, publicKey, { algorithms: [\"RS256\"], issuer, audience });" },
@@ -59,5 +59,13 @@ describe("verifier rejects unrelated safe-looking code", () => {
       'app.post("/login", (req, res) => { req.session.userId = user.id; });'
     ].join("\n");
     expect(checkLessonFix("session-fixation", code).passed).toBe(false);
+  });
+});
+
+
+describe("verifier rejects mixed safe and vulnerable code", () => {
+  it.each(cases)("$id does not pass merely because a mitigation token coexists with vulnerable code", ({ id, vulnerable, fixed }) => {
+    const result = checkLessonFix(id, fixed + "\\n" + vulnerable);
+    expect(result.passed, id + ": " + result.message + " " + result.evidence.join(" ")).toBe(false);
   });
 });
