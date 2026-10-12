@@ -15,14 +15,16 @@ RUN set -eux; \
     arm64) NODE_ARCH=arm64; JUICE_ARCH=arm64; JUICE_SHA=7983185bdeebed72e7f8b2a281f96e883ce4cf1dae7718cb37817c62baae2ca9 ;; \
     *) echo "Unsupported architecture: $(dpkg --print-architecture)" >&2; exit 1 ;; \
   esac; \
+  NODE22_ARCHIVE="node-v$NODE22_VERSION-linux-$NODE_ARCH.tar.xz"; \
+  NODE12_ARCHIVE="node-v$NODE12_VERSION-linux-$NODE_ARCH.tar.xz"; \
   curl -fsSL "https://nodejs.org/dist/v$NODE22_VERSION/SHASUMS256.txt" -o /tmp/node22-shasums.txt; \
-  curl -fsSL "https://nodejs.org/dist/v$NODE22_VERSION/node-v$NODE22_VERSION-linux-$NODE_ARCH.tar.xz" -o /tmp/node22.tar.xz; \
-  grep " node-v$NODE22_VERSION-linux-$NODE_ARCH.tar.xz$" /tmp/node22-shasums.txt | (cd /tmp && sha256sum -c -); \
-  mkdir -p /opt/node22; tar -xJf /tmp/node22.tar.xz -C /opt/node22 --strip-components=1; \
+  curl -fsSL "https://nodejs.org/dist/v$NODE22_VERSION/$NODE22_ARCHIVE" -o "/tmp/$NODE22_ARCHIVE"; \
+  grep " $NODE22_ARCHIVE$" /tmp/node22-shasums.txt | (cd /tmp && sha256sum -c -); \
+  mkdir -p /opt/node22; tar -xJf "/tmp/$NODE22_ARCHIVE" -C /opt/node22 --strip-components=1; \
   curl -fsSL "https://nodejs.org/dist/v$NODE12_VERSION/SHASUMS256.txt" -o /tmp/node12-shasums.txt; \
-  curl -fsSL "https://nodejs.org/dist/v$NODE12_VERSION/node-v$NODE12_VERSION-linux-$NODE_ARCH.tar.xz" -o /tmp/node12.tar.xz; \
-  grep " node-v$NODE12_VERSION-linux-$NODE_ARCH.tar.xz$" /tmp/node12-shasums.txt | (cd /tmp && sha256sum -c -); \
-  mkdir -p /opt/node12; tar -xJf /tmp/node12.tar.xz -C /opt/node12 --strip-components=1; \
+  curl -fsSL "https://nodejs.org/dist/v$NODE12_VERSION/$NODE12_ARCHIVE" -o "/tmp/$NODE12_ARCHIVE"; \
+  grep " $NODE12_ARCHIVE$" /tmp/node12-shasums.txt | (cd /tmp && sha256sum -c -); \
+  mkdir -p /opt/node12; tar -xJf "/tmp/$NODE12_ARCHIVE" -C /opt/node12 --strip-components=1; \
   curl -fsSL "https://github.com/juice-shop/juice-shop/releases/download/v$JUICE_SHOP_VERSION/juice-shop-$JUICE_SHOP_VERSION"_node22_linux_"$JUICE_ARCH".tgz -o /tmp/juice-shop.tgz; \
   echo "$JUICE_SHA  /tmp/juice-shop.tgz" | sha256sum -c -; \
   mkdir -p /opt/juice-shop; tar -xzf /tmp/juice-shop.tgz -C /opt/juice-shop --strip-components=1; \
