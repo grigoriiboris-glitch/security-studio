@@ -83,7 +83,7 @@ describe("IDOR owner-scope verifier", () => {
 
 describe("SQLi verifier alias/template edge cases", () => {
   it("rejects one interpolated SQL template without relying on a preceding safe query", () => {
-    const code = 'db.query(\x60SELECT * FROM users WHERE name = \x22\${username}\x22\x60);';
+    const code = 'db.query(\x60SELECT * FROM users WHERE name = \x22${username}\x22\x60);';
     expect(checkSqlInjectionFix(code).passed).toBe(false);
   });
 });
