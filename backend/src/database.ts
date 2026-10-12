@@ -74,8 +74,9 @@ export function saveChatMessages(conversationId: string, lessonId: string, messa
     ON CONFLICT(conversation_id, message_id) DO UPDATE SET
       role = excluded.role, message_json = excluded.message_json
   `);
-  const transaction = database.transaction((items: unknown[]) => {
-    for (const item of items) {
+  database.exec("BEGIN");
+  try {
+    for (const item of messages) {
       if (!item || typeof item !== "object") continue;
       const message = item as { id?: unknown; role?: unknown };
       const messageId = typeof message.id === "string" && message.id.length <= 256 ? message.id : null;
@@ -84,8 +85,11 @@ export function saveChatMessages(conversationId: string, lessonId: string, messa
       if (!messageId || !role) continue;
       insert.run(conversationId, messageId, lessonId, role, JSON.stringify(item));
     }
-  });
-  transaction(messages);
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
   database.prepare(`
     DELETE FROM chat_messages WHERE conversation_id = ? AND message_id NOT IN (
       SELECT message_id FROM chat_messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 200
