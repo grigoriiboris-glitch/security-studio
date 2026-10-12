@@ -58,7 +58,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
         return { changed: true, balance: 0 };
       case "path-traversal":
         if (query.path === "../secret.txt" && !state.fixed) return { file: "LAB-ONLY-SECRET-FIXTURE" };
-        if (query.path !== "readme.txt" || query.path === "../secret.txt") return reply.code(403).send({ error: "Path outside fixture root" });
+        if (query.path !== "readme.txt") return reply.code(403).send({ error: "Path outside fixture root" });
         return { file: "This is a harmless lab fixture." };
       case "ssrf":
         // No outbound request is made. The "metadata" destination is a fixed local fixture.
