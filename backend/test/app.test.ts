@@ -68,6 +68,15 @@ describe("Security Studio API", () => {
     const response = await (await makeApp()).inject({ method: "POST", url: "/api/labs/anything/start" });
     expect(response.statusCode).toBe(400);
   });
+  it("resets only an active lab and restarts the same allowlisted environment", async () => {
+    const app = await makeApp();
+    expect((await app.inject({ method: "POST", url: "/api/labs/reset" })).statusCode).toBe(409);
+    await app.inject({ method: "POST", url: "/api/labs/nodegoat/start" });
+    const reset = await app.inject({ method: "POST", url: "/api/labs/reset" });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toMatchObject({ reset: true, activeLab: { id: "nodegoat" } });
+  });
+
   it("stops the active lab", async () => {
     const app = await makeApp();
     await app.inject({ method: "POST", url: "/api/labs/juice-shop/start" });
