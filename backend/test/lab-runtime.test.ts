@@ -54,8 +54,8 @@ describe("all 30 synthetic runtime labs", () => {
     expect(new Set(scenarios.map((s: { lessonId: string }) => s.lessonId)).size).toBe(30);
     expect(scenarios.every((s: { workflow: { exploitProbe: boolean; remediationCheck: boolean; runtimeRetest: boolean; reset: boolean } }) =>
       s.workflow.exploitProbe && s.workflow.remediationCheck && s.workflow.runtimeRetest && s.workflow.reset)).toBe(true);
-    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "runtime-ready")).toHaveLength(8);
-    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(22);
+    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "runtime-ready")).toHaveLength(30);
+    expect(scenarios.filter((s: { runtimeStatus: string }) => s.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(0);
   });
 
   it.each(lessonIds)("runs exploit → fix → retest → reset for %s", async (lessonId) => {
@@ -63,7 +63,7 @@ describe("all 30 synthetic runtime labs", () => {
     const base = "/api/labs/scenarios/" + lessonId;
     const created = await app.inject({ method: "POST", url: base + "/reset" });
     expect(created.statusCode).toBe(200);
-    expect(created.json().mode).toBe(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"].includes(lessonId) ? "controlled-http" : "synthetic");
+    expect(created.json().mode).toBe(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"].includes(lessonId) ? "controlled-http" : "synthetic");
     expect(created.json().codeExecution).toBe(false);
     const runId = created.json().run.runId;
 
