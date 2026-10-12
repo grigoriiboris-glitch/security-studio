@@ -137,6 +137,10 @@ async function toggleLab() {
   if (labs.activeLab) await labs.stopActiveLab();
   else await labs.startSelectedLab();
 }
+async function resetLab() {
+  await labs.resetActiveLab();
+  if (!labs.lastError) ElMessage.success("Лаборатория перезапущена, временные данные сброшены.");
+}
 </script>
 
 <template>
@@ -188,6 +192,7 @@ async function toggleLab() {
               {{ labs.activeLab ? "Остановить" : "Запустить лабораторию" }}
             </el-button>
             <el-button v-if="labs.activeLab" tag="a" :href="labs.activeLab.url" target="_blank" rel="noopener noreferrer" size="large">Открыть приложение ↗</el-button>
+            <el-button v-if="labs.activeLab" size="large" :loading="labs.busy" @click="resetLab">Сбросить лабораторию</el-button>
             <el-button v-if="labs.activeLab?.id === 'juice-shop'" type="warning" size="large" :loading="demoBusy" @click="runDemo">Запустить пример SQLi</el-button>
           </div>
         </div>
