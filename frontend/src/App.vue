@@ -18,6 +18,7 @@ const demoResult = ref<DemoResult | null>(null);
 const selectedExample = ref<"vulnerable" | "fixed">("vulnerable");
 const runtimeBusy = ref(false);
 const runtimeRun = ref<SyntheticRun | null>(null);
+const httpRuntimeLessonIds = new Set(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]);
 const runtimeEvidence = ref<SyntheticEvidence | null>(null);
 const labOptions = [
   { label: "OWASP Juice Shop", value: "juice-shop" },
@@ -304,9 +305,9 @@ async function resetLab() {
                 <div><div class="eyebrow">04 / ПРОВЕРЬТЕ В ДЕЙСТВИИ</div><h2>Runtime-цикл уязвимости</h2></div>
                 <el-tag :type="runtimeRun?.phase === 'passed' ? 'success' : runtimeRun ? 'warning' : 'info'">{{ runtimeRun?.phase ?? "не запущен" }}</el-tag>
               </div>
-              <p class="body-copy">Изолированная синтетическая мишень: контрольный exploit → проверка кода исправления → повторный probe. Код из редактора не исполняется, а проверяется backend-verifier-ом.</p>
+              <p class="body-copy">{{ httpRuntimeLessonIds.has(lesson.id) ? "Контролируемая HTTP-мишень: реальные запросы к учебным обработчикам, затем независимый retest. Используются только синтетические данные; внешние хосты не вызываются." : "Синтетическая модель: exploit → проверка кода исправления → повторный probe. Код из редактора не исполняется, а проверяется backend-verifier-ом." }}</p>
               <div class="editor-actions runtime-actions">
-                <el-button v-if="!runtimeRun" type="primary" :loading="runtimeBusy" @click="startSyntheticRun">Подготовить сценарий</el-button>
+                <el-button v-if="!runtimeRun" type="primary" :loading="runtimeBusy" @click="startSyntheticRun">{{ httpRuntimeLessonIds.has(lesson.id) ? "Подготовить HTTP-мишень" : "Подготовить сценарий" }}</el-button>
                 <template v-else>
                   <el-button :disabled="runtimeRun.phase !== 'ready' && runtimeRun.phase !== 'exploited'" :loading="runtimeBusy" @click="runSyntheticExploit">1. Exploit probe</el-button>
                   <el-button type="primary" :disabled="runtimeRun.phase !== 'exploited'" :loading="runtimeBusy" @click="applySyntheticFix">2. Проверить fix</el-button>
