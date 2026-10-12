@@ -127,7 +127,10 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.post("/api/labs/scenarios/:lessonId/reset", async (request, reply) => {
     const parsed = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
     if (!parsed.success) return reply.code(400).send({ error: "Неизвестный урок." });
-    const run = createLabRun(parsed.data);\n    const mode = httpTargetLessons.has(parsed.data) ? "controlled-http" : "synthetic";\n    if (mode === "controlled-http") await app.inject({ method: "POST", url: "/api/labs/http-targets/" + parsed.data + "/" + run.runId + "/prepare" });\n    return { run, mode, codeExecution: false };
+    const run = createLabRun(parsed.data);
+    const mode = httpTargetLessons.has(parsed.data) ? "controlled-http" : "synthetic";
+    if (mode === "controlled-http") await app.inject({ method: "POST", url: "/api/labs/http-targets/" + parsed.data + "/" + run.runId + "/prepare" });
+    return { run, mode, codeExecution: false };
   });
 
   app.get("/api/labs/scenarios/:lessonId/:runId", async (request, reply) => {
