@@ -18,8 +18,12 @@ function fakeLabs(): LabManagerContract {
     },
     async start(id) {
       active = id;
-      return { id, name: id === "nodegoat" ? "OWASP NodeGoat" : "OWASP Juice Shop",
-        url: id === "nodegoat" ? "http://127.0.0.1:4000" : "http://127.0.0.1:3000", status: "running" };
+      return {
+        id,
+        name: id === "nodegoat" ? "OWASP NodeGoat" : "OWASP Juice Shop",
+        url: id === "nodegoat" ? "http://127.0.0.1:4000" : "http://127.0.0.1:3000",
+        status: "running"
+      };
     },
     async stop() { active = null; }
   };
@@ -66,8 +70,14 @@ describe("Security Studio API", () => {
   });
   it("returns independent code-check results", async () => {
     const app = await makeApp();
-    const safe = await app.inject({ method: "POST", url: "/api/labs/check", payload: { code: 'db.query("SELECT * FROM users WHERE name = ?", [username]);' } });
-    const unsafe = await app.inject({ method: "POST", url: "/api/labs/check", payload: { code: 'db.query("SELECT * FROM users WHERE name = \\'" + username);' } });
+    const safe = await app.inject({
+      method: "POST", url: "/api/labs/check",
+      payload: { code: 'db.query("SELECT * FROM users WHERE name = ?", [username]);' }
+    });
+    const unsafe = await app.inject({
+      method: "POST", url: "/api/labs/check",
+      payload: { code: 'db.query("SELECT * FROM users WHERE name = " + username);' }
+    });
     expect(safe.json().passed).toBe(true);
     expect(unsafe.json().passed).toBe(false);
   });
