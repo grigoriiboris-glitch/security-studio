@@ -27,6 +27,10 @@ export async function checkCode(code: string): Promise<CheckResult> {
   return (await http.post("/labs/check", { code })).data;
 }
 
+export async function saveExerciseCode(code: string): Promise<void> {
+  await http.put("/workspace/sql-injection", { code });
+}
+
 export async function fetchChatHistory(conversationId: string): Promise<UIMessage[]> {
   return (await http.get<{ messages: UIMessage[] }>("/assistant/history", { params: { id: conversationId } })).data.messages;
 }
