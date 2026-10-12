@@ -109,13 +109,7 @@ test("saves code, checks it, and restores the lesson after reload", async ({ pag
   await expect(page.getByText("Проверка пройдена.", { exact: true }).first()).toBeVisible();
 
   await expect.poll(() => savedProgress?.editorCode ?? "").toContain("[username]");
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.reload();
-  const restoredEditor = page.locator(".monaco-editor").first();
-  await expect(restoredEditor).toBeVisible();
-  await restoredEditor.click();
-  await page.keyboard.press("Control+A");
-  await page.keyboard.press("Control+C");
-  const restoredCode = await page.evaluate(() => navigator.clipboard.readText());
-  expect(restoredCode).toContain("[username]");
+  await expect(page.locator(".monaco-editor").first()).toBeVisible();
+  await expect(page.locator(".monaco-editor .view-lines").first()).toContainText("[username]");
 });
