@@ -116,8 +116,8 @@ async function toggleLab() {
               <div class="editor-titlebar">
                 <div><div class="eyebrow">02 / ИССЛЕДУЙТЕ</div><h2>Фрагмент приложения</h2></div>
                 <div class="editor-actions">
-                  <el-button size="small" :type="selectedExample === 'vulnerable' ? 'warning' : 'default'" @click="loadExample('vulnerable')">Уязвимый</el-button>
-                  <el-button size="small" :type="selectedExample === 'fixed' ? 'success' : 'default'" @click="loadExample('fixed')">Исправленный</el-button>
+                  <el-button size="small" :type="selectedExample === 'vulnerable' ? 'warning' : 'info'" @click="loadExample('vulnerable')">Уязвимый</el-button>
+                  <el-button size="small" :type="selectedExample === 'fixed' ? 'success' : 'info'" @click="loadExample('fixed')">Исправленный</el-button>
                 </div>
               </div>
               <div class="editor-meta"><span class="file-dot"></span><span>user-repository.js</span><span class="editor-language">JavaScript</span></div>
