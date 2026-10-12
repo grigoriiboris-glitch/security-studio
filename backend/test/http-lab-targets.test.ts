@@ -69,6 +69,32 @@ describe("controlled HTTP vulnerability targets", () => {
     expect(protectedResponse.statusCode).toBe(403);
   });
 
+
+  it.each([
+    ["xss-reflected", "res.send(escapeHtml(req.query.value));"],
+    ["xss-stored", "element.textContent = comment;"],
+    ["xss-dom", "element.textContent = location.hash;"],
+    ["idor", "findUnique({ id: req.params.id, ownerId: req.user.id });"],
+    ["csrf", "verifyCsrfToken(req);"],
+    ["path-traversal", "safeResolveWithin(root, userPath);"],
+    ["ssrf", "validateAllowlistedHttpsUrl(inputUrl);"]
+  ] as const)("runs the public exploit → verifier fix → HTTP retest workflow for %s", async (lessonId, safeCode) => {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const base = "/api/labs/scenarios/" + lessonId;
+    const created = await app.inject({ method: "POST", url: base + "/reset" });
+    expect(created.statusCode).toBe(200);
+    expect(created.json().mode).toBe("controlled-http");
+    const runId = created.json().run.runId;
+    const exploit = await app.inject({ method: "POST", url: base + "/" + runId + "/exploit" });
+    expect(exploit.json()).toMatchObject({ vulnerable: true, passed: true, phase: "exploited" });
+    const fixed = await app.inject({ method: "POST", url: base + "/" + runId + "/fix", payload: { code: safeCode } });
+    expect(fixed.json().remediation?.passed, JSON.stringify(fixed.json())).toBe(true);
+    const retest = await app.inject({ method: "POST", url: base + "/" + runId + "/retest" });
+    expect(retest.json()).toMatchObject({ vulnerable: false, passed: true, phase: "passed" });
+  });
+
   it("rejects unknown lesson and unprepared sessions", async () => {
     const app = buildApp();
     await app.ready();
