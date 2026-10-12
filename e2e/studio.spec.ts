@@ -39,6 +39,22 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+test("reveals lesson hints progressively and can hide them again", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Найдите решение самостоятельно")).toBeVisible();
+  const hintButton = page.getByRole("button", { name: "Открыть следующую подсказку" });
+  await hintButton.click();
+  await expect(page.locator(".hint-card .objective-list li")).toHaveCount(1);
+  await expect(page.locator(".hint-card .objective-list")).toContainText("Найти SQL-конкатенацию");
+  await hintButton.click();
+  await expect(page.locator(".hint-card .objective-list li")).toHaveCount(2);
+  await hintButton.click();
+  await expect(page.locator(".hint-card .objective-list li")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Все подсказки открыты" })).toBeDisabled();
+  await page.getByRole("button", { name: "Скрыть подсказки" }).click();
+  await expect(page.locator(".hint-card .objective-list")).toHaveCount(0);
+});
+
 test("editor submits changed code to backend checker and displays its result", async ({ page }) => {
   let submittedCode = "";
   await page.route("**/api/labs/check", async (route) => {
@@ -173,10 +189,13 @@ test("runs synthetic exploit → fix → retest from the lesson workspace", asyn
   await page.getByRole("button", { name: "Подготовить сценарий" }).click();
   await page.getByRole("button", { name: "1. Exploit probe" }).click();
   await expect(page.getByText("Контрольный exploit probe подтвердил уязвимое поведение.")).toBeVisible();
+  await expect(page.locator(".runtime-history")).toContainText("Exploit probe");
   await page.getByRole("button", { name: "2. Проверить fix" }).click();
   await expect(page.getByText("Исправление принято.")).toBeVisible();
+  await expect(page.locator(".runtime-history")).toContainText("Проверка исправления");
   await page.getByRole("button", { name: "3. Retest" }).click();
   await expect(page.getByText("Runtime retest пройден.")).toBeVisible();
+  await expect(page.locator(".runtime-history")).toContainText("Независимый retest");
   expect(calls).toEqual(["reset", "exploit", "fix", "retest"]);
 });
 
