@@ -11,6 +11,7 @@ import { buildLessonSystem, lessonIds, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkLessonFix } from "./security-check.js";
 import { labScenarios } from "./lab-scenarios.js";
+import { createLabRun, fixLabRun, getLabRun, probeLabRun, resetLabRun, retestLabRun } from "./lab-runtime.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
 
@@ -85,6 +86,59 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.get("/api/lessons", async () => ({ lessonIds }));
 
   app.get("/api/labs/scenarios", async () => ({ scenarios: labScenarios }));
+
+  // Fixed, deterministic synthetic targets for every lesson. User editor code is never executed.
+  app.post("/api/labs/scenarios/:lessonId/reset", async (request, reply) => {
+    const parsed = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
+    if (!parsed.success) return reply.code(400).send({ error: "Неизвестный урок." });
+    return { run: createLabRun(parsed.data), mode: "synthetic", codeExecution: false };
+  });
+
+  app.get("/api/labs/scenarios/:lessonId/:runId", async (request, reply) => {
+    const params = request.params as { lessonId?: string; runId?: string };
+    const lesson = lessonIdSchema.safeParse(params.lessonId);
+    if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
+    const run = getLabRun(lesson.data, params.runId);
+    if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена. Создайте новую через reset." });
+    return { run };
+  });
+
+  app.post("/api/labs/scenarios/:lessonId/:runId/exploit", async (request, reply) => {
+    const params = request.params as { lessonId?: string; runId?: string };
+    const lesson = lessonIdSchema.safeParse(params.lessonId);
+    if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
+    const result = probeLabRun(lesson.data, params.runId);
+    if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return result;
+  });
+
+  app.post("/api/labs/scenarios/:lessonId/:runId/fix", async (request, reply) => {
+    const params = request.params as { lessonId?: string; runId?: string };
+    const lesson = lessonIdSchema.safeParse(params.lessonId);
+    const body = z.object({ code: z.string().max(12000) }).safeParse(request.body);
+    if (!lesson.success || !params.runId || !body.success) return reply.code(400).send({ error: "Передайте lessonId, runId и code длиной не более 12000 символов." });
+    const result = fixLabRun(lesson.data, params.runId, body.data.code);
+    if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return result;
+  });
+
+  app.post("/api/labs/scenarios/:lessonId/:runId/retest", async (request, reply) => {
+    const params = request.params as { lessonId?: string; runId?: string };
+    const lesson = lessonIdSchema.safeParse(params.lessonId);
+    if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
+    const result = retestLabRun(lesson.data, params.runId);
+    if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return result;
+  });
+
+  app.post("/api/labs/scenarios/:lessonId/:runId/reset", async (request, reply) => {
+    const params = request.params as { lessonId?: string; runId?: string };
+    const lesson = lessonIdSchema.safeParse(params.lessonId);
+    if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
+    const run = resetLabRun(lesson.data, params.runId);
+    if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return { run };
+  });
 
   app.get("/api/workspace/:lessonId", async (request, reply) => {
     const parsedId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
