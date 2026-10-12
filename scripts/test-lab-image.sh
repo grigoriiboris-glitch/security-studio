@@ -25,7 +25,7 @@ run_lab() {
     --security-opt=no-new-privileges:true --cap-drop=ALL --read-only \
     --tmpfs /tmp:rw,nosuid,nodev,size=128m,uid=999,gid=999 \
     --tmpfs /data/db:rw,nosuid,nodev,size=256m,uid=999,gid=999 \
-    --tmpfs /opt/juice-shop/data:rw,nosuid,nodev,size=128m,uid=999,gid=999 \
+    --tmpfs /opt/juice-shop/logs:rw,nosuid,nodev,size=32m,uid=999,gid=999 \
     "$IMAGE" "$mode" >/dev/null
   for attempt in $(seq 1 90); do
     if curl --silent --show-error --fail "http://127.0.0.1:$host_port$path" >/dev/null 2>&1; then
