@@ -32,6 +32,7 @@ RUN set -eux; \
   mkdir -p /opt/juice-shop/.well-known-bundled; cp -a /opt/juice-shop/.well-known/. /opt/juice-shop/.well-known-bundled/; \
   mv /opt/juice-shop/frontend/dist/frontend /opt/juice-shop/frontend/dist/frontend-bundled; \
   mv /opt/juice-shop/ftp /opt/juice-shop/ftp-bundled; \
+  mv /opt/juice-shop/i18n /opt/juice-shop/i18n-bundled; \
   git init /opt/nodegoat; \
   git -C /opt/nodegoat remote add origin https://github.com/OWASP/NodeGoat.git; \
   git -C /opt/nodegoat fetch --depth 1 origin "$NODEGOAT_COMMIT"; \
