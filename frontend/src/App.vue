@@ -72,6 +72,8 @@ async function selectLesson(id: string) {
   selectedLessonId.value = id;
   const selected = lessons.find((item) => item.id === id) ?? lessons[0];
   switchingLesson.value = true;
+  labs.checkResult = null;
+  selectedExample.value = "vulnerable";
   try {
     const saved = await fetchProgress(selected.id);
     if (saved) {
