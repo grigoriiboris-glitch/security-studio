@@ -319,6 +319,9 @@ async function resetLab() {
                 <div class="check-result-title"><span>{{ runtimeEvidence.passed ? "✓" : "!" }}</span>{{ runtimeEvidence.message }}</div>
                 <ul><li v-for="item in runtimeEvidence.evidence" :key="item">{{ item }}</li></ul>
                 <p v-if="runtimeEvidence.remediation">{{ runtimeEvidence.remediation.message }}</p>
+                <ul v-if="runtimeEvidence.remediation && runtimeEvidence.remediation.evidence.length">
+                  <li v-for="item in runtimeEvidence.remediation.evidence" :key="item">{{ item }}</li>
+                </ul>
               </div>
             </section>
           </div>
