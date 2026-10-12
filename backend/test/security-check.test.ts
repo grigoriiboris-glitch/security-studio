@@ -23,6 +23,20 @@ describe("SQL injection static verifier: known vulnerable and fixed examples", (
     expect(result.evidence.join(" ")).toContain("параметризованного");
   });
 
+  it("does not pass when a safe example exists only in a comment", () => {
+    const code = '// db.query("SELECT * FROM users WHERE name = ?", [username]);';
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
+  it("rejects template interpolation even when a separate safe query exists", () => {
+    const code = [
+      'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+      'const query = `SELECT * FROM users WHERE name = ${username}`;',
+      'db.query(query);'
+    ].join("\n");
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
   it("does not treat a commented-out vulnerable example as active code", () => {
     const code = [
       '// const query = "SELECT * FROM users WHERE name = " + username;',
