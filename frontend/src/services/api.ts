@@ -1,4 +1,5 @@
 import axios from "axios";
+import type { UIMessage } from "ai";
 
 export type LabId = "juice-shop" | "nodegoat";
 export type ActiveLab = { id: LabId; name: string; url: string; status: "running" };
@@ -24,6 +25,10 @@ export async function runSqlInjectionDemo(): Promise<DemoResult> {
 }
 export async function checkCode(code: string): Promise<CheckResult> {
   return (await http.post("/labs/check", { code })).data;
+}
+
+export async function fetchChatHistory(conversationId: string): Promise<UIMessage[]> {
+  return (await http.get<{ messages: UIMessage[] }>("/assistant/history", { params: { id: conversationId } })).data.messages;
 }
 
 export type SavedProgress = {
