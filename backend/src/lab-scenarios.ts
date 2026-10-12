@@ -9,10 +9,10 @@ export type LabScenario = {
   note: string;
 };
 
-const realRuntime = new Set<LessonId>(lessonIds);
+const runtimeReady = new Set<LessonId>(lessonIds);
 const httpRuntime = new Set<LessonId>(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"]);
 export const labScenarios: LabScenario[] = lessonIds.map((lessonId) => {
-  const real = realRuntime.has(lessonId);
+  const real = runtimeReady.has(lessonId);
   return {
     lessonId,
     runtimeStatus: real ? "runtime-ready" : "synthetic-runtime-ready",
