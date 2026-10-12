@@ -179,6 +179,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
     const run = resetLabRun(lesson.data, params.runId);
     if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    if (httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/reset" });
     return { run };
   });
 
