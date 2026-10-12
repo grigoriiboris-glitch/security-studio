@@ -65,7 +65,7 @@ describe("verifier rejects unrelated safe-looking code", () => {
 
 describe("verifier rejects mixed safe and vulnerable code", () => {
   it.each(cases)("$id does not pass merely because a mitigation token coexists with vulnerable code", ({ id, vulnerable, fixed }) => {
-    const result = checkLessonFix(id, fixed + "\\n" + vulnerable);
+    const result = checkLessonFix(id, fixed + "\n" + vulnerable);
     expect(result.passed, id + ": " + result.message + " " + result.evidence.join(" ")).toBe(false);
   });
 });
@@ -77,7 +77,7 @@ describe("additional verifier bypass regressions", () => {
       "const origin = req.headers.origin;",
       "if (allowedOrigins.has(safeOrigin)) audit(safeOrigin);",
       'reply.header("Access-Control-Allow-Origin", origin);'
-    ].join("\\n");
+    ].join("\n");
     expect(checkLessonFix("cors", code).passed).toBe(false);
   });
 

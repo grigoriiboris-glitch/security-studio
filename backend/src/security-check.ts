@@ -68,6 +68,11 @@ export function checkLessonFix(lessonId: LessonId, code: string): SecurityCheckR
   if (!rule) return fail("Для урока не настроено правило проверки.", ["Нет verifier для выбранного урока."]);
   const source = removeComments(code);
   let hasUnsafe = rule.unsafe.test(source);
+  if (lessonId === "command-injection") {
+    // Be conservative: an exec() call and request-derived input in the same submitted
+    // fragment is unsafe unless the code uses execFile/spawn without a shell.
+    if (/\bexec\s*\(/i.test(source) && /\breq\.(?:body|query|params)\./i.test(source)) hasUnsafe = true;
+  }
   if (lessonId === "cors") {
     const reflectedAlias = /\b(?:const|let|var)\s+origin\s*=\s*req\.headers\.origin[\s\S]{0,200}["']Access-Control-Allow-Origin["']\s*,\s*origin\b/i.test(source);
     const guardedReflection = /if\s*\(\s*allowedOrigins\.has\s*\(\s*origin\s*\)\s*\)\s*(?:\{[\s\S]{0,200}?\b(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin|(?:res|reply)\.(?:header|setHeader)\s*\(\s*["']Access-Control-Allow-Origin["']\s*,\s*origin)/i.test(source);
