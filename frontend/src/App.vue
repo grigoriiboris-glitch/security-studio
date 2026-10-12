@@ -4,7 +4,7 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
-import { fetchHealth, fetchProgress, saveProgress, saveExerciseCode, runSqlInjectionDemo, type DemoResult } from "./services/api";
+import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, type DemoResult } from "./services/api";
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
@@ -80,7 +80,13 @@ async function selectLesson(id: string) {
       labs.checkResult = saved.checkResult;
       selectedExample.value = saved.editorCode === selected.fixedCode ? "fixed" : "vulnerable";
     } else {
-      labs.loadExample("vulnerable", selected.id);
+      const savedCode = await fetchExerciseCode(selected.id);
+      if (savedCode !== null) {
+        labs.editorCode = savedCode;
+        selectedExample.value = savedCode === selected.fixedCode ? "fixed" : "vulnerable";
+      } else {
+        labs.loadExample("vulnerable", selected.id);
+      }
     }
   } catch {
     labs.loadExample("vulnerable", selected.id);
