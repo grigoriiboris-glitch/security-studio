@@ -33,8 +33,8 @@ describe("Security Studio API", () => {
   const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
   afterEach(async () => { await Promise.all(apps.splice(0).map((app) => app.close())); });
 
-  async function makeApp() {
-    const app = buildApp({ labManager: fakeLabs() });
+  async function makeApp(demoFetch?: typeof fetch) {
+    const app = buildApp({ labManager: fakeLabs(), demoFetch });
     await app.ready();
     apps.push(app);
     return app;
@@ -87,6 +87,31 @@ describe("Security Studio API", () => {
     });
     expect(response.statusCode).toBe(403);
   });
+  it("only runs SQLi demo against active Juice Shop and never returns the session token", async () => {
+    let requestedUrl = "";
+    let requestBody = "";
+    const demoFetch: typeof fetch = async (input, init) => {
+      requestedUrl = String(input);
+      requestBody = String(init?.body);
+      return new Response(JSON.stringify({ authentication: { token: "token-that-must-not-leak" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    };
+    const app = await makeApp(demoFetch);
+    expect((await app.inject({ method: "POST", url: "/api/labs/demo-sqli" })).statusCode).toBe(409);
+    await app.inject({ method: "POST", url: "/api/labs/juice-shop/start" });
+    const response = await app.inject({ method: "POST", url: "/api/labs/demo-sqli" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().passed).toBe(true);
+    expect(requestedUrl).toBe("http://127.0.0.1:3000/rest/user/login");
+    expect(JSON.parse(requestBody)).toEqual({
+      email: "' OR 1=1--",
+      password: "security-studio-invalid-password"
+    });
+    expect(response.body).not.toContain("token-that-must-not-leak");
+  });
+
   it("validates chat payload before contacting upstream", async () => {
     const response = await (await makeApp()).inject({
       method: "POST", url: "/api/assistant/chat", payload: { messages: [], lessonId: "invalid" }

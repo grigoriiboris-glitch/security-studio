@@ -3,6 +3,7 @@ import axios from "axios";
 export type LabId = "juice-shop" | "nodegoat";
 export type ActiveLab = { id: LabId; name: string; url: string; status: "running" };
 export type CheckResult = { passed: boolean; message: string; evidence: string[] };
+export type DemoResult = CheckResult;
 
 const http = axios.create({ baseURL: "/api", timeout: 20_000 });
 
@@ -17,6 +18,9 @@ export async function startLab(id: LabId): Promise<ActiveLab> {
 }
 export async function stopLab(): Promise<void> {
   await http.post("/labs/stop");
+}
+export async function runSqlInjectionDemo(): Promise<DemoResult> {
+  return (await http.post("/labs/demo-sqli")).data;
 }
 export async function checkCode(code: string): Promise<CheckResult> {
   return (await http.post("/labs/check", { code })).data;

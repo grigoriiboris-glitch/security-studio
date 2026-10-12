@@ -4,13 +4,15 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
-import { fetchHealth } from "./services/api";
+import { fetchHealth, runSqlInjectionDemo, type DemoResult } from "./services/api";
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
 const lesson = lessons[0];
 const apiOnline = ref(false);
 const aiConfigured = ref(false);
+const demoBusy = ref(false);
+const demoResult = ref<DemoResult | null>(null);
 const selectedExample = ref<"vulnerable" | "fixed">("vulnerable");
 const labOptions = [
   { label: "OWASP Juice Shop", value: "juice-shop" },
@@ -30,6 +32,26 @@ onMounted(async () => {
 function loadExample(kind: "vulnerable" | "fixed") {
   selectedExample.value = kind;
   labs.loadExample(kind);
+}
+async function runDemo() {
+  demoBusy.value = true;
+  demoResult.value = null;
+  try {
+    demoResult.value = await runSqlInjectionDemo();
+    ElMessage({
+      type: demoResult.value.passed ? "success" : "warning",
+      message: demoResult.value.message,
+      duration: 5000
+    });
+  } catch {
+    demoResult.value = {
+      passed: false,
+      message: "Демонстрация не выполнена. Проверьте, что Juice Shop запущен.",
+      evidence: []
+    };
+  } finally {
+    demoBusy.value = false;
+  }
 }
 async function runCheck() {
   await labs.verifyCode();
@@ -97,10 +119,12 @@ async function toggleLab() {
               {{ labs.activeLab ? "Остановить" : "Запустить лабораторию" }}
             </el-button>
             <el-button v-if="labs.activeLab" tag="a" :href="labs.activeLab.url" target="_blank" rel="noopener noreferrer" size="large">Открыть приложение ↗</el-button>
+            <el-button v-if="labs.activeLab?.id === 'juice-shop'" type="warning" size="large" :loading="demoBusy" @click="runDemo">Запустить пример SQLi</el-button>
           </div>
         </div>
 
         <el-alert v-if="labs.lastError" class="inline-alert" :title="labs.lastError" type="error" show-icon :closable="false" />
+        <el-alert v-if="demoResult" class="inline-alert" :title="demoResult.message" :description="demoResult.evidence.join(' ')" :type="demoResult.passed ? 'success' : 'warning'" show-icon :closable="false" />
         <div class="main-grid">
           <div class="lesson-column">
             <section class="info-card">

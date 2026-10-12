@@ -20,7 +20,7 @@ const chatRequestSchema = z.object({
   lessonId: lessonIdSchema.default("sql-injection"),
   code: z.string().max(12000).optional()
 });
-type AppDependencies = { labManager?: LabManagerContract };
+type AppDependencies = { labManager?: LabManagerContract; demoFetch?: typeof fetch };
 
 function sessionIdFrom(value: string | undefined): string {
   if (!value) return randomUUID();
@@ -32,6 +32,7 @@ function errorMessage(error: unknown): string {
 
 export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const labManager = dependencies.labManager ?? new LabManager();
+  const demoFetch = dependencies.demoFetch ?? fetch;
   const app = Fastify({ logger: false, bodyLimit: 256 * 1024, trustProxy: false });
   app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "same-site" } });
   app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
@@ -71,6 +72,46 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     catch (error) {
       request.log.error({ error: errorMessage(error) }, "Failed to stop lab");
       return reply.code(503).send({ error: "Не удалось остановить учебную среду.", message: errorMessage(error) });
+    }
+  });
+
+  app.post("/api/labs/demo-sqli", {
+    config: { rateLimit: { max: 4, timeWindow: "1 minute" } }
+  }, async (_request, reply) => {
+    const status = await labManager.status();
+    if (!status.available) {
+      return reply.code(503).send({ error: status.message ?? "Docker недоступен." });
+    }
+    if (status.activeLab?.id !== "juice-shop") {
+      return reply.code(409).send({ error: "Для демонстрации запустите OWASP Juice Shop в Security Studio." });
+    }
+
+    try {
+      const upstream = await demoFetch("http://127.0.0.1:3000/rest/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "' OR 1=1--", password: "security-studio-invalid-password" }),
+        redirect: "error",
+        signal: AbortSignal.timeout(5000)
+      });
+      const result = await upstream.json().catch(() => null) as { authentication?: { token?: unknown } } | null;
+      const tokenIssued = typeof result?.authentication?.token === "string";
+      const passed = upstream.ok && tokenIssued;
+      return {
+        passed,
+        message: passed
+          ? "SQL-инъекция сработала в локальном Juice Shop: учебное приложение выдало сессию без корректного пароля."
+          : "SQL-инъекция не подтвердилась: учебное приложение не выдало сессию на тестовый запрос.",
+        evidence: [
+          "Запрос отправлен только на фиксированный адрес локального Juice Shop.",
+          "HTTP статус: " + upstream.status + ".",
+          tokenIssued ? "В ответе был токен сессии; он намеренно не возвращается в браузер." : "Токен сессии не обнаружен."
+        ]
+      };
+    } catch {
+      return reply.code(503).send({
+        error: "Juice Shop недоступен на 127.0.0.1:3000. Проверьте статус лаборатории и попробуйте ещё раз."
+      });
     }
   });
 
