@@ -157,6 +157,28 @@ export function retestLabRun(lessonId: LessonId, runId: string): LabEvidence | n
     "Это детерминированная synthetic-модель, не интеграционный тест реального production-приложения."
   ]);
 }
+export function recordLabProbeResult(lessonId: LessonId, runId: string, vulnerable: boolean): LabRun | null {
+  const run = getRun(lessonId, runId);
+  if (!run) return null;
+  // A failed HTTP baseline is not an exploit: keep the lesson at the ready phase.
+  if (!vulnerable && run.phase === "exploited") {
+    run.phase = "ready";
+    run.fixed = false;
+    run.probeCount = 0;
+  }
+  return { runId: run.runId, lessonId: run.lessonId, phase: run.phase, fixed: run.fixed, createdAt: run.createdAt };
+}
+export function recordLabRetestResult(lessonId: LessonId, runId: string, passed: boolean): LabRun | null {
+  const run = getRun(lessonId, runId);
+  if (!run) return null;
+  // The static verifier is not a substitute for the HTTP retest. If the
+  // vulnerability still reproduces, the workflow must remain in the fixed phase.
+  if (run.phase === "passed" && !passed) {
+    run.phase = "fixed";
+    run.fixed = true;
+  }
+  return { runId: run.runId, lessonId: run.lessonId, phase: run.phase, fixed: run.fixed, createdAt: run.createdAt };
+}
 export function resetLabRun(lessonId: LessonId, runId: string): LabRun | null {
   const run = getRun(lessonId, runId);
   if (!run) return null;

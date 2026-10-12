@@ -11,7 +11,7 @@ import { buildLessonSystem, lessonIds, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkLessonFix } from "./security-check.js";
 import { labScenarios } from "./lab-scenarios.js";
-import { createLabRun, fixLabRun, getLabRun, probeLabRun, resetLabRun, retestLabRun } from "./lab-runtime.js";
+import { createLabRun, fixLabRun, getLabRun, probeLabRun, recordLabProbeResult, recordLabRetestResult, resetLabRun, retestLabRun } from "./lab-runtime.js";
 import { registerHttpLabTargets } from "./http-lab-targets.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
@@ -218,7 +218,9 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
     if (!httpTargetLessons.has(lesson.data)) return result;
     const probe = await probeHttpTarget(app, lesson.data, params.runId);
-    return { ...result, vulnerable: probe.vulnerable, passed: probe.vulnerable, message: probe.vulnerable ? "HTTP exploit probe подтвердил уязвимое поведение контролируемой мишени." : "HTTP exploit probe не воспроизвёл уязвимость; проверьте исходное состояние.", evidence: ["Контролируемая HTTP-мишень Security Studio.", ...probe.evidence, "Код из редактора не исполнялся; внешние хосты не вызываются."] };
+    const run = recordLabProbeResult(lesson.data, params.runId, probe.vulnerable);
+    if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return { ...result, phase: run.phase, vulnerable: probe.vulnerable, passed: probe.vulnerable, message: probe.vulnerable ? "HTTP exploit probe подтвердил уязвимое поведение контролируемой мишени." : "HTTP exploit probe не воспроизвёл уязвимость; мишень осталась в исходном состоянии.", evidence: ["Контролируемая HTTP-мишень Security Studio.", ...probe.evidence, "Код из редактора не исполнялся; внешние хосты не вызываются."] };
   });
 
   app.post("/api/labs/scenarios/:lessonId/:runId/fix", async (request, reply) => {
@@ -241,7 +243,9 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!httpTargetLessons.has(lesson.data) || result.phase !== "passed") return result;
     const probe = await probeHttpTarget(app, lesson.data, params.runId);
     const passed = !probe.vulnerable;
-    return { ...result, vulnerable: probe.vulnerable, passed, message: passed ? "HTTP retest пройден: контрольный запрос больше не воспроизводит уязвимость." : "HTTP retest провален: контрольный запрос всё ещё воспроизводит уязвимость.", evidence: ["Повторён тот же контрольный HTTP probe после применения защиты.", ...probe.evidence, "Это локальная fixture-мишень, а не проверка произвольного приложения."] };
+    const run = recordLabRetestResult(lesson.data, params.runId, passed);
+    if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    return { ...result, phase: run.phase, vulnerable: probe.vulnerable, passed, message: passed ? "HTTP retest пройден: контрольный запрос больше не воспроизводит уязвимость." : "HTTP retest провален: контрольный запрос всё ещё воспроизводит уязвимость.", evidence: ["Повторён тот же контрольный HTTP probe после применения защиты.", ...probe.evidence, "Это локальная fixture-мишень, а не проверка произвольного приложения."] };
   });
 
   app.post("/api/labs/scenarios/:lessonId/:runId/reset", async (request, reply) => {
