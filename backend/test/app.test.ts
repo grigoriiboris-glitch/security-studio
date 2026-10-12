@@ -1,4 +1,6 @@
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
+import { saveChatMessages } from "../src/database.js";
 import { buildApp } from "../src/app.js";
 import type { LabManagerContract, LabId } from "../src/lab-manager.js";
 
@@ -127,6 +129,24 @@ describe("Security Studio API", () => {
     expect(loaded.statusCode).toBe(200);
     expect(loaded.json().progress.checkResult).toEqual(payload.checkResult);
     expect((await app.inject({ method: "PUT", url: "/api/progress/unknown", payload })).statusCode).toBe(400);
+  });
+
+  it("restores persisted chat history for the same conversation id", async () => {
+    const app = await makeApp();
+    const conversationId = "history-test-" + crypto.randomUUID();
+    const sessionId = createHash("sha256").update(conversationId).digest("hex").slice(0, 32);
+    const messages = [
+      { id: "user-1", role: "user", parts: [{ type: "text", text: "Что такое SQL-инъекция?" }] },
+      { id: "assistant-1", role: "assistant", parts: [{ type: "text", text: "Это небезопасная обработка SQL-ввода." }] }
+    ];
+    saveChatMessages(sessionId, "sql-injection", messages);
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/assistant/history?id=" + encodeURIComponent(conversationId)
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().messages).toEqual(messages);
+    expect((await app.inject({ method: "GET", url: "/api/assistant/history" })).statusCode).toBe(400);
   });
 
   it("validates chat payload before contacting upstream", async () => {
