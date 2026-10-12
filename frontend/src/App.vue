@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
+import BrowserProbe from "./components/BrowserProbe.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
 import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, createSyntheticRun, exploitSyntheticRun, fixSyntheticRun, retestSyntheticRun, resetSyntheticRun, type DemoResult, type SyntheticRun, type SyntheticEvidence } from "./services/api";
@@ -328,6 +329,8 @@ async function resetLab() {
             </section>
 
             <section class="fix-card"><div class="fix-icon">✓</div><div><div class="eyebrow">03 / ЗАКРЕПИТЕ</div><h2>Как исправить</h2><p>{{ lesson.mitigation }}</p></div></section>
+
+            <BrowserProbe v-if="lesson.id === 'xss-dom'" />
 
             <section class="info-card runtime-card">
               <div class="section-heading">
