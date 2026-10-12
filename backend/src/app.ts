@@ -10,6 +10,7 @@ import { config } from "./config.js";
 import { buildLessonSystem, lessonIds, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkLessonFix } from "./security-check.js";
+import { labScenarios } from "./lab-scenarios.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
 
@@ -82,6 +83,8 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   });
 
   app.get("/api/lessons", async () => ({ lessonIds }));
+
+  app.get("/api/labs/scenarios", async () => ({ scenarios: labScenarios }));
 
   app.get("/api/workspace/:lessonId", async (request, reply) => {
     const parsedId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
