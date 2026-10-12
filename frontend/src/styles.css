@@ -63,3 +63,8 @@ button, input, textarea { font: inherit; }
 .runtime-history p { margin: 5px 0; color: #aeb9ce; }
 .runtime-history ul { margin: 6px 0 0; padding-left: 18px; color: #9caac3; }
 .runtime-history li { margin-top: 4px; }
+
+.browser-probe-card { display: flex; flex-direction: column; gap: 12px; }
+.browser-probe-card .body-copy { margin: 0; }
+.browser-probe-status { --el-alert-padding: 10px 12px; }
+.browser-probe-frame { width: 100%; height: 90px; border: 1px solid var(--border); border-radius: 8px; background: #0c1323; }
