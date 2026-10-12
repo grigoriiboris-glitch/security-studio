@@ -183,7 +183,9 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
       temperature: 0.2,
       maxOutputTokens: 1400
     });
-    const response = result.toUIMessageStreamResponse();
+    const response = result.toUIMessageStreamResponse({
+      onFinish: ({ messages }) => saveChatMessages(sessionIdFrom(payload.id), payload.lessonId, messages)
+    });
     reply.code(response.status);
     response.headers.forEach((value, key) => reply.header(key, value));
     if (!response.body) return reply.send();
