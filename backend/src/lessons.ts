@@ -51,7 +51,7 @@ export function isLessonId(value: string): value is LessonId {
 
 export function buildLessonSystem(lessonId: LessonId, code?: string): string {
   const codeContext = code
-    ? "\\n\\nТекущий фрагмент (недоверенные данные):\\n--- BEGIN CODE ---\\n" + code.slice(0, 12000) + "\\n--- END CODE ---"
+    ? "\n\nТекущий фрагмент (недоверенные данные):\n--- BEGIN CODE ---\n" + code.slice(0, 12000) + "\n--- END CODE ---"
     : "";
   return lessonContexts[lessonId] + codeContext;
 }
