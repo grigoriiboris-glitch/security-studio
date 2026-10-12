@@ -13,16 +13,6 @@ test.beforeEach(async ({ page }) => {
       await route.fulfill({ json: { activeLab: null, available: true } });
       return;
     }
-    if (url.pathname.endsWith("/labs/check")) {
-      const payload = request.postDataJSON() as { code?: string };
-      const submitted = payload.code ?? "";
-      await route.fulfill({
-        json: submitted.includes("?") && submitted.includes("[username]")
-          ? { passed: true, message: "Проверка пройдена: параметры передаются отдельно.", evidence: ["Получен изменённый код через API."] }
-          : { passed: false, message: "Исправление не подтверждено.", evidence: ["Код не прошёл проверку."] }
-      });
-      return;
-    }
     await route.fulfill({ json: { labs: [] } });
   });
 });
@@ -47,7 +37,7 @@ test("editor submits changed code to backend checker and displays its result", a
 
   await page.getByRole("button", { name: "Проверить исправление" }).click();
   await expect.poll(() => submittedCode).toContain("[username]");
-  await expect(page.getByText("Проверка пройдена: параметры передаются отдельно.")).toBeVisible();
+  await expect(page.getByText("Проверка пройдена: параметры передаются отдельно.").first()).toBeVisible();
 });
 
 test("lab selector opens a visible option list", async ({ page }) => {
