@@ -8,7 +8,8 @@ import { fetchHealth, fetchProgress, saveProgress, saveExerciseCode, runSqlInjec
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
-const lesson = lessons[0];
+const selectedLessonId = ref<string>("sql-injection");
+const lesson = computed(() => lessons.find((item) => item.id === selectedLessonId.value) ?? lessons[0]);
 const apiOnline = ref(false);
 const aiConfigured = ref(false);
 const demoBusy = ref(false);
@@ -45,12 +46,12 @@ onBeforeUnmount(() => {
 
 onMounted(async () => {
   try {
-    const saved = await fetchProgress(lesson.id);
+    const saved = await fetchProgress(lesson.value.id);
     if (saved) {
       labs.editorCode = saved.editorCode;
       labs.selectedLabId = saved.selectedLabId;
       labs.checkResult = saved.checkResult;
-      selectedExample.value = saved.editorCode === lesson.fixedCode ? "fixed" : "vulnerable";
+      selectedExample.value = saved.editorCode === lesson.value.fixedCode ? "fixed" : "vulnerable";
     }
   } catch { /* The health indicator reports API connection failures. */ }
   progressReady.value = true;
@@ -64,7 +65,26 @@ onMounted(async () => {
 
 function loadExample(kind: "vulnerable" | "fixed") {
   selectedExample.value = kind;
-  labs.loadExample(kind);
+  labs.loadExample(kind, lesson.value.id);
+}
+async function selectLesson(id: string) {
+  selectedLessonId.value = id;
+  const selected = lessons.find((item) => item.id === id) ?? lessons[0];
+  labs.checkResult = null;
+  selectedExample.value = "vulnerable";
+  try {
+    const saved = await fetchProgress(selected.id);
+    if (saved) {
+      labs.editorCode = saved.editorCode;
+      labs.selectedLabId = saved.selectedLabId;
+      labs.checkResult = saved.checkResult;
+      selectedExample.value = saved.editorCode === selected.fixedCode ? "fixed" : "vulnerable";
+    } else {
+      labs.loadExample("vulnerable", selected.id);
+    }
+  } catch {
+    labs.loadExample("vulnerable", selected.id);
+  }
 }
 async function runDemo() {
   demoBusy.value = true;
@@ -87,7 +107,7 @@ async function runDemo() {
   }
 }
 async function runCheck() {
-  await labs.verifyCode();
+  await labs.verifyCode(lesson.value.id);
   if (labs.checkResult) {
     ElMessage({
       type: labs.checkResult.passed ? "success" : "warning",
@@ -99,7 +119,7 @@ async function runCheck() {
 async function saveCode() {
   savingCode.value = true;
   try {
-    await saveExerciseCode(labs.editorCode);
+    await saveExerciseCode(labs.editorCode, lesson.value.id);
     ElMessage.success("Код сохранён в рабочую область урока.");
   } catch {
     ElMessage.error("Не удалось сохранить код. Проверьте подключение к API.");
@@ -131,19 +151,18 @@ async function toggleLab() {
     <el-main class="workspace">
       <aside class="lesson-rail">
         <div class="eyebrow">ОБУЧЕНИЕ</div>
-        <button class="lesson-card is-selected" type="button">
-          <span class="lesson-number">01</span>
-          <span class="lesson-card-copy"><strong>SQL Injection</strong><small>Начальный уровень</small></span>
-          <span class="lesson-active-dot"></span>
-        </button>
-        <div class="rail-note"><div class="eyebrow">ЦЕЛЬ УРОКА</div><p>Понять причину SQL-инъекции и проверить исправление кодом, а не мнением AI.</p></div>
+        <el-select v-model="selectedLessonId" class="lesson-selector" filterable size="large" aria-label="Выбор урока" @change="selectLesson">
+          <el-option v-for="item in lessons" :key="item.id" :label="item.title" :value="item.id" />
+        </el-select>
+        <div class="selected-lesson-summary"><strong>{{ lesson.title }}</strong><small>{{ lesson.level }} · {{ lessons.length }} уроков в программе</small></div>
+        <div class="rail-note"><div class="eyebrow">ЦЕЛЬ УРОКА</div><p>Понять причину уязвимости и подтвердить исправление независимой проверкой.</p></div>
         <div class="rail-footer"><span class="tiny-dot"></span>Среда локальная</div>
       </aside>
 
       <section class="lesson-workspace">
         <div class="page-heading">
           <div>
-            <div class="eyebrow">ЛАБОРАТОРИЯ 01 / БЕЗОПАСНОСТЬ ДАННЫХ</div>
+            <div class="eyebrow">УРОК {{ String(lessons.findIndex((item) => item.id === lesson.id) + 1).padStart(2, "0") }} / ВЕБ-БЕЗОПАСНОСТЬ</div>
             <h1>{{ lesson.title }}</h1>
             <p>{{ lesson.summary }}</p>
           </div>
@@ -173,7 +192,7 @@ async function toggleLab() {
           <div class="lesson-column">
             <section class="info-card">
               <div class="section-heading">
-                <div><div class="eyebrow">01 / ИЗУЧИТЕ</div><h2>Что происходит при SQL-инъекции</h2></div>
+                <div><div class="eyebrow">01 / ИЗУЧИТЕ</div><h2>Как возникает {{ lesson.title }}</h2></div>
                 <span class="step-count">3 шага</span>
               </div>
               <p class="body-copy">{{ lesson.explanation }}</p>
@@ -188,7 +207,7 @@ async function toggleLab() {
                   <el-button size="small" :type="selectedExample === 'fixed' ? 'success' : 'info'" @click="loadExample('fixed')">Исправленный</el-button>
                 </div>
               </div>
-              <div class="editor-meta"><span class="file-dot"></span><span>user-repository.js</span><span class="editor-language">JavaScript</span></div>
+              <div class="editor-meta"><span class="file-dot"></span><span>solution.js</span><span class="editor-language">JavaScript</span></div>
               <CodeEditor v-model="labs.editorCode" />
               <div class="editor-footer">
                 <span>Сохраняйте свой фрагмент в изолированной рабочей области урока.</span>
@@ -204,14 +223,14 @@ async function toggleLab() {
               </div>
             </section>
 
-            <section class="fix-card"><div class="fix-icon">✓</div><div><div class="eyebrow">03 / ЗАКРЕПИТЕ</div><h2>Как исправить</h2><p>Используйте параметризованные запросы и передавайте значения отдельно от SQL-строки.</p></div></section>
+            <section class="fix-card"><div class="fix-icon">✓</div><div><div class="eyebrow">03 / ЗАКРЕПИТЕ</div><h2>Как исправить</h2><p>{{ lesson.mitigation }}</p></div></section>
           </div>
 
           <div class="assistant-column">
             <AssistantChat />
             <section class="context-card">
               <div class="eyebrow">КОНТЕКСТ AI</div>
-              <div class="context-row"><span>Урок</span><strong>SQL Injection</strong></div>
+              <div class="context-row"><span>Урок</span><strong>{{ lesson.title }}</strong></div>
               <div class="context-row"><span>Код</span><strong>Текущий фрагмент</strong></div>
               <div class="context-row"><span>Оценивание</span><strong>Независимая проверка</strong></div>
               <p>AI объясняет подход. Результат проверки рассчитывается backend-правилом отдельно от модели.</p>
