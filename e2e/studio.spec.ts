@@ -136,8 +136,8 @@ test("switching lesson changes the example and verifier receives that lesson ID"
 
   await page.goto("/");
   const selector = page.getByRole("combobox", { name: "Выбор урока" });
-  await selector.fill("DOM XSS");
-  await page.getByRole("option", { name: "DOM XSS" }).click();
+  await selector.fill("DOM-based XSS");
+  await page.getByRole("option", { name: "DOM-based XSS" }).click();
   await expect(page.locator(".monaco-editor .view-lines").first()).toContainText("location.hash");
   await page.getByRole("button", { name: "Проверить исправление" }).click();
   await expect.poll(() => checkedLesson).toBe("xss-dom");
