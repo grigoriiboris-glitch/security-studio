@@ -28,6 +28,10 @@ export async function checkCode(code: string, lessonId: LessonId = "sql-injectio
   return (await http.post("/labs/check", { lessonId, code })).data;
 }
 
+export async function fetchExerciseCode(lessonId: LessonId): Promise<string | null> {
+  return (await http.get<{ code: string | null }>("/workspace/" + encodeURIComponent(lessonId))).data.code;
+}
+
 export async function saveExerciseCode(code: string, lessonId: LessonId = "sql-injection"): Promise<void> {
   await http.put("/workspace/" + encodeURIComponent(lessonId), { code });
 }
