@@ -199,7 +199,7 @@ async function resetLab() {
             </el-button>
             <el-button v-if="labs.activeLab" tag="a" :href="labs.activeLab.url" target="_blank" rel="noopener noreferrer" size="large">Открыть приложение ↗</el-button>
             <el-button v-if="labs.activeLab" size="large" :loading="labs.busy" @click="resetLab">Сбросить лабораторию</el-button>
-            <el-button v-if="labs.activeLab?.id === 'juice-shop'" type="warning" size="large" :loading="demoBusy" @click="runDemo">Запустить пример SQLi</el-button>
+            <el-button v-if="labs.activeLab?.id === 'juice-shop' && lesson.id === 'sql-injection'" type="warning" size="large" :loading="demoBusy" @click="runDemo">Запустить пример SQLi</el-button>
           </div>
         </div>
 
