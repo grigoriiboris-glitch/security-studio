@@ -10,10 +10,16 @@ import { config } from "./config.js";
 import { buildLessonSystem, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
 import { checkSqlInjectionFix } from "./security-check.js";
+import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 
 const lessonIdSchema = z.enum(["sql-injection"]);
 const labIdSchema = z.enum(["juice-shop", "nodegoat"]);
 const checkRequestSchema = z.object({ code: z.string().max(12000) });
+const progressRequestSchema = z.object({
+  editorCode: z.string().max(12000),
+  selectedLabId: labIdSchema.default("juice-shop"),
+  checkResult: z.object({ passed: z.boolean(), message: z.string().max(1000), evidence: z.array(z.string().max(500)).max(30) }).nullable().optional()
+});
 const chatRequestSchema = z.object({
   id: z.string().max(256).optional(),
   messages: z.array(z.unknown()).min(1).max(80),
@@ -48,6 +54,30 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     aiConfigured: Boolean(config.openCodeApiKey),
     model: config.model
   }));
+  app.get("/api/progress/:lessonId", async (request, reply) => {
+    const lessonId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
+    if (!lessonId.success) return reply.code(400).send({ error: "Неизвестный урок." });
+    return { progress: getProgress(lessonId.data) };
+  });
+
+  app.put("/api/progress/:lessonId", async (request, reply) => {
+    const lessonId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
+    const parsed = progressRequestSchema.safeParse(request.body);
+    if (!lessonId.success || !parsed.success) return reply.code(400).send({ error: "Некорректный прогресс урока." });
+    return { progress: saveProgress({
+      lessonId: lessonId.data,
+      editorCode: parsed.data.editorCode,
+      selectedLabId: parsed.data.selectedLabId,
+      checkResult: parsed.data.checkResult ?? null
+    }) };
+  });
+
+  app.get("/api/assistant/history", async (request, reply) => {
+    const query = z.object({ id: z.string().min(1).max(256) }).safeParse(request.query);
+    if (!query.success) return reply.code(400).send({ error: "Укажите id диалога." });
+    return { messages: getChatMessages(sessionIdFrom(query.data.id)) };
+  });
+
   app.get("/api/labs", async () => ({ labs: labCatalog }));
   app.get("/api/labs/status", async (_request, reply) => {
     const status = await labManager.status();
@@ -134,6 +164,8 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     });
 
     const payload = parsed.data;
+    saveChatMessages(sessionIdFrom(payload.id), payload.lessonId, payload.messages);
+
     const provider = createOpenAICompatible({
       name: "opencode-go",
       baseURL: config.openCodeBaseUrl,
