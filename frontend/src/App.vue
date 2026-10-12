@@ -20,6 +20,9 @@ const runtimeBusy = ref(false);
 const runtimeRun = ref<SyntheticRun | null>(null);
 const httpRuntimeLessonIds = new Set(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"]);
 const runtimeEvidence = ref<SyntheticEvidence | null>(null);
+const hintLevel = ref(0);
+const runtimeHistory = ref<Array<{ step: string; phase: string; message: string; evidence: string[] }>>([]);
+const availableHints = computed(() => [lesson.value.objectives[0], lesson.value.objectives[1], lesson.value.mitigation].filter((item): item is string => Boolean(item)));
 const labOptions = [
   { label: "OWASP Juice Shop", value: "juice-shop" },
   { label: "OWASP NodeGoat", value: "nodegoat" }
@@ -68,6 +71,12 @@ onMounted(async () => {
   } catch { apiOnline.value = false; }
 });
 
+function revealHint() {
+  hintLevel.value = Math.min(hintLevel.value + 1, availableHints.value.length);
+}
+function recordRuntimeStep(step: string, evidence: SyntheticEvidence) {
+  runtimeHistory.value.unshift({ step, phase: evidence.phase, message: evidence.message, evidence: [...evidence.evidence] });
+}
 function loadExample(kind: "vulnerable" | "fixed") {
   selectedExample.value = kind;
   labs.loadExample(kind, lesson.value.id);
@@ -76,6 +85,8 @@ async function selectLesson(id: string) {
   selectedLessonId.value = id;
   runtimeRun.value = null;
   runtimeEvidence.value = null;
+  runtimeHistory.value = [];
+  hintLevel.value = 0;
   const selected = lessons.find((item) => item.id === id) ?? lessons[0];
   switchingLesson.value = true;
   labs.checkResult = null;
@@ -162,6 +173,7 @@ async function runSyntheticExploit() {
   runtimeBusy.value = true;
   try {
     runtimeEvidence.value = await exploitSyntheticRun(lesson.value.id, runtimeRun.value.runId);
+    recordRuntimeStep("Exploit probe", runtimeEvidence.value);
     runtimeRun.value.phase = runtimeEvidence.value.phase;
     runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
   } catch { ElMessage.error("Не удалось выполнить контрольный probe."); }
@@ -172,6 +184,7 @@ async function applySyntheticFix() {
   runtimeBusy.value = true;
   try {
     runtimeEvidence.value = await fixSyntheticRun(lesson.value.id, runtimeRun.value.runId, labs.editorCode);
+    recordRuntimeStep("Проверка исправления", runtimeEvidence.value);
     runtimeRun.value.phase = runtimeEvidence.value.phase;
     runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
   } catch { ElMessage.error("Не удалось проверить исправление в лаборатории."); }
@@ -182,6 +195,7 @@ async function runSyntheticRetest() {
   runtimeBusy.value = true;
   try {
     runtimeEvidence.value = await retestSyntheticRun(lesson.value.id, runtimeRun.value.runId);
+    recordRuntimeStep("Независимый retest", runtimeEvidence.value);
     runtimeRun.value.phase = runtimeEvidence.value.phase;
     runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
   } catch { ElMessage.error("Не удалось выполнить runtime retest."); }
@@ -193,6 +207,7 @@ async function resetSynthetic() {
     if (runtimeRun.value) runtimeRun.value = await resetSyntheticRun(lesson.value.id, runtimeRun.value.runId);
     else runtimeRun.value = await createSyntheticRun(lesson.value.id);
     runtimeEvidence.value = null;
+    runtimeHistory.value = [];
     ElMessage.success("Сценарий сброшен в исходное состояние.");
   } catch { ElMessage.error("Не удалось сбросить сценарий."); }
   finally { runtimeBusy.value = false; }
@@ -274,6 +289,20 @@ async function resetLab() {
               <ol class="objective-list"><li v-for="objective in lesson.objectives" :key="objective">{{ objective }}</li></ol>
             </section>
 
+            <section class="info-card hint-card">
+              <div class="section-heading">
+                <div><div class="eyebrow">ПОДСКАЗКИ</div><h2>Найдите решение самостоятельно</h2></div>
+                <el-tag effect="plain">{{ hintLevel }} / {{ availableHints.length }}</el-tag>
+              </div>
+              <p class="body-copy">Открывайте подсказки по одной. Последняя содержит направление исправления, поэтому попробуйте сначала найти источник проблемы самостоятельно.</p>
+              <ol v-if="hintLevel > 0" class="objective-list">
+                <li v-for="(hint, index) in availableHints.slice(0, hintLevel)" :key="index">{{ hint }}</li>
+              </ol>
+              <div class="editor-actions">
+                <el-button type="primary" plain :disabled="hintLevel >= availableHints.length" @click="revealHint">{{ hintLevel >= availableHints.length ? "Все подсказки открыты" : "Открыть следующую подсказку" }}</el-button>
+                <el-button :disabled="hintLevel === 0" @click="hintLevel = 0">Скрыть подсказки</el-button>
+              </div>
+            </section>
             <section class="editor-card">
               <div class="editor-titlebar">
                 <div><div class="eyebrow">02 / ИССЛЕДУЙТЕ</div><h2>Фрагмент приложения</h2></div>
@@ -315,6 +344,16 @@ async function resetLab() {
                   <el-button :loading="runtimeBusy" @click="resetSynthetic">Сбросить</el-button>
                 </template>
               </div>
+              <section v-if="runtimeHistory.length" class="runtime-history">
+                <div class="eyebrow">ИСТОРИЯ ДОКАЗАТЕЛЬСТВ</div>
+                <el-timeline>
+                  <el-timeline-item v-for="(item, index) in runtimeHistory" :key="`${item.step}-${index}`" :type="item.phase === 'passed' || item.phase === 'fixed' ? 'success' : item.phase === 'exploited' ? 'danger' : 'primary'" :timestamp="item.phase">
+                    <strong>{{ item.step }}</strong>
+                    <p>{{ item.message }}</p>
+                    <ul v-if="item.evidence.length"><li v-for="detail in item.evidence" :key="detail">{{ detail }}</li></ul>
+                  </el-timeline-item>
+                </el-timeline>
+              </section>
               <div v-if="runtimeEvidence" class="check-result" :class="{ passed: runtimeEvidence.passed && !runtimeEvidence.vulnerable }">
                 <div class="check-result-title"><span>{{ runtimeEvidence.passed ? "✓" : "!" }}</span>{{ runtimeEvidence.message }}</div>
                 <ul><li v-for="item in runtimeEvidence.evidence" :key="item">{{ item }}</li></ul>
