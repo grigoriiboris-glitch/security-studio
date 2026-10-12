@@ -31,7 +31,7 @@ export function checkSqlInjectionFix(code: string): SecurityCheckResult {
 }
 type Rule = { safe: RegExp; unsafe: RegExp; safeEvidence: string; unsafeEvidence: string };
 const rules: Partial<Record<LessonId, Rule>> = {
-  "xss-reflected": { safe: /escapeHtml|encodeHTML|textContent/i, unsafe: /\+\s*req\.(query|params|body)\.[A-Za-z_$][\w$]*\s*\+/i, safeEvidence: "Найдено экранирование/безопасный вывод.", unsafeEvidence: "Ввод отражается в HTML-строке." },
+  "xss-reflected": { safe: /escapeHtml|encodeHTML|textContent/i, unsafe: /(?:\+\s*req\.(query|params|body)\.[A-Za-z_$][\w$]*\s*\+|\b(?:res|reply)\.(?:send|write|end)\s*\(\s*(?:String\s*\(\s*)?req\.(?:query|params|body)\.[A-Za-z_$][\w$]*)/i, safeEvidence: "Найдено экранирование/безопасный вывод.", unsafeEvidence: "Ввод отражается в HTML-строке или напрямую отправляется в ответ." },
   "xss-stored": { safe: /textContent|escapeHtml|sanitizeHtml/i, unsafe: /innerHTML\s*=\s*[^;]*(comment|post|message|body)/i, safeEvidence: "Найден безопасный sink или санитайзер.", unsafeEvidence: "Сохранённый контент попадает в innerHTML." },
   "xss-dom": { safe: /textContent|createTextNode|sanitizeHtml/i, unsafe: /innerHTML\s*=\s*[^;]*location\./i, safeEvidence: "DOM-значение выводится как текст.", unsafeEvidence: "Источник из URL попадает в innerHTML." },
   csrf: { safe: /verifyCsrfToken|csrfProtection|csrf\.protect/i, unsafe: /app\.(post|put|patch|delete)\s*\((?![^;\n]*(verifyCsrfToken|csrfProtection|csrf\.protect))[^;\n]*(update|change|delete|email|password)/i, safeEvidence: "Найдена CSRF-проверка.", unsafeEvidence: "Изменяющий маршрут без распознаваемой CSRF-защиты." },
@@ -71,7 +71,10 @@ export function checkLessonFix(lessonId: LessonId, code: string): SecurityCheckR
   if (lessonId === "session-fixation") {
     const rotateAt = source.search(/session\.regenerate|rotateSession|regenerateSession/i);
     const assignAt = source.search(/session\.userId\s*=\s*user\.id/i);
-    if (rotateAt >= 0 && assignAt >= 0 && rotateAt < assignAt) hasUnsafe = false;
+    const rotations = source.match(/session\.regenerate|rotateSession|regenerateSession/gi)?.length ?? 0;
+    const assignments = source.match(/session\.userId\s*=\s*user\.id/gi)?.length ?? 0;
+    // One rotated session cannot secure an additional assignment in another route.
+    if (rotateAt >= 0 && assignAt >= 0 && rotateAt < assignAt && rotations >= assignments) hasUnsafe = false;
   }
   const hasSafe = rule.safe.test(source);
   const evidence = [
