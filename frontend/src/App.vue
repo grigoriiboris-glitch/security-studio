@@ -30,7 +30,7 @@ watch(
     if (!progressReady.value) return;
     if (progressSaveTimer) clearTimeout(progressSaveTimer);
     progressSaveTimer = setTimeout(() => {
-      void saveProgress(lesson.id, {
+      void saveProgress(lesson.value.id, {
         editorCode: labs.editorCode,
         selectedLabId: labs.selectedLabId,
         checkResult: labs.checkResult
