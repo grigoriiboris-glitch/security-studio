@@ -117,3 +117,28 @@ test("saves code, checks it, and restores the lesson after reload", async ({ pag
   await expect(page.locator(".monaco-editor").first()).toBeVisible();
   await expect(page.locator(".monaco-editor .view-lines").first()).toContainText("[username]");
 });
+
+
+test("switching lesson changes the example and verifier receives that lesson ID", async ({ page }) => {
+  let checkedLesson = "";
+  await page.route("**/api/progress/xss-dom", async (route) => {
+    await route.fulfill({ json: { progress: null } });
+  });
+  await page.route("**/api/workspace/xss-dom", async (route) => {
+    await route.fulfill({ json: { code: null, file: "solution.js" } });
+  });
+  await page.route("**/api/labs/check", async (route) => {
+    checkedLesson = (route.request().postDataJSON() as { lessonId: string }).lessonId;
+    await route.fulfill({
+      json: { passed: false, message: "Учебная проверка DOM XSS.", evidence: ["Verifier получил lessonId."] }
+    });
+  });
+
+  await page.goto("/");
+  const selector = page.getByRole("combobox", { name: "Выбор урока" });
+  await selector.click();
+  await page.getByRole("option", { name: "DOM XSS" }).click();
+  await expect(page.locator(".monaco-editor .view-lines").first()).toContainText("location.hash");
+  await page.getByRole("button", { name: "Проверить исправление" }).click();
+  await expect.poll(() => checkedLesson).toBe("xss-dom");
+});
