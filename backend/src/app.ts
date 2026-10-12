@@ -7,15 +7,15 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { z } from "zod";
 import { config } from "./config.js";
-import { buildLessonSystem, type LessonId } from "./lessons.js";
+import { buildLessonSystem, isLessonId, lessonIds, type LessonId } from "./lessons.js";
 import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./lab-manager.js";
-import { checkSqlInjectionFix } from "./security-check.js";
+import { checkLessonFix } from "./security-check.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
 
-const lessonIdSchema = z.enum(["sql-injection"]);
+const lessonIdSchema = z.enum(lessonIds);
 const labIdSchema = z.enum(["juice-shop", "nodegoat"]);
-const checkRequestSchema = z.object({ code: z.string().max(12000) });
+const checkRequestSchema = z.object({ lessonId: lessonIdSchema.default("sql-injection"), code: z.string().max(12000) });
 const workspaceRequestSchema = z.object({ code: z.string().max(12000) });
 const progressRequestSchema = z.object({
   editorCode: z.string().max(12000),
@@ -81,16 +81,21 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     return { messages: getChatMessages(sessionIdFrom(query.data.id)) };
   });
 
-  app.get("/api/workspace/sql-injection", async () => ({
-    code: await workspace.read("sql-injection"),
-    file: "user-repository.js"
-  }));
+  app.get("/api/lessons", async () => ({ lessonIds }));
 
-  app.put("/api/workspace/sql-injection", async (request, reply) => {
+  app.get("/api/workspace/:lessonId", async (request, reply) => {
+    const parsedId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
+    if (!parsedId.success) return reply.code(400).send({ error: "Неизвестный урок." });
+    return { code: await workspace.read(parsedId.data), file: "solution.js" };
+  });
+
+  app.put("/api/workspace/:lessonId", async (request, reply) => {
+    const parsedId = lessonIdSchema.safeParse((request.params as { lessonId?: string }).lessonId);
     const parsed = workspaceRequestSchema.safeParse(request.body);
+    if (!parsedId.success) return reply.code(400).send({ error: "Неизвестный урок." });
     if (!parsed.success) return reply.code(400).send({ error: "Код должен быть строкой длиной не более 12000 символов." });
-    await workspace.write("sql-injection", parsed.data.code);
-    return { saved: true, file: "user-repository.js" };
+    await workspace.write(parsedId.data, parsed.data.code);
+    return { saved: true, file: "solution.js" };
   });
 
   app.get("/api/labs", async () => ({ labs: labCatalog }));
@@ -163,7 +168,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.post("/api/labs/check", async (request, reply) => {
     const parsed = checkRequestSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Передайте строку code длиной не более 12000 символов." });
-    return checkSqlInjectionFix(parsed.data.code);
+    return checkLessonFix(parsed.data.lessonId, parsed.data.code);
   });
 
   app.post("/api/assistant/chat", {
