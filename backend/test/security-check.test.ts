@@ -3,7 +3,7 @@ import { checkSqlInjectionFix } from "../src/security-check.js";
 
 describe("SQL injection static verifier", () => {
   it("rejects SQL constructed with string concatenation", () => {
-    const code = 'const query = "SELECT * FROM users WHERE name = \\'" + username + "\\'";\ndb.query(query);';
+    const code = ['const query = "SELECT * FROM users WHERE name = " + username;', "db.query(query);"].join("\n");
     const result = checkSqlInjectionFix(code);
     expect(result.passed).toBe(false);
     expect(result.evidence.join(" ")).toContain("конкатенация");
