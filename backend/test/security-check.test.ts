@@ -5,7 +5,7 @@ describe("SQL injection static verifier: known vulnerable and fixed examples", (
   const vulnerableExamples = [
     'const query = "SELECT * FROM users WHERE name = " + username; db.query(query);',
     'db.query(`SELECT * FROM users WHERE name = ${username}`);',
-    'const query = "UPDATE users SET name = \"" + name + "\" WHERE id = " + id; db.execute(query);'
+    'const query = "UPDATE users SET name = " + name + " WHERE id = " + id; db.execute(query);'
   ];
   const fixedExamples = [
     'db.query("SELECT * FROM users WHERE name = ?", [username]);',
