@@ -72,6 +72,15 @@ test("lab selector opens a visible option list", async ({ page }) => {
 
 test("saves code, checks it, and restores the lesson after reload", async ({ page }) => {
   let workspaceCode = "";
+  let savedProgress: { editorCode: string; selectedLabId: string; checkResult: unknown } | null = null;
+  await page.route("**/api/progress/sql-injection", async (route) => {
+    if (route.request().method() === "PUT") {
+      savedProgress = route.request().postDataJSON() as typeof savedProgress;
+      await route.fulfill({ json: { progress: savedProgress } });
+      return;
+    }
+    await route.fulfill({ json: { progress: savedProgress } });
+  });
   await page.route("**/api/workspace/sql-injection", async (route) => {
     const request = route.request();
     if (request.method() === "PUT") {
@@ -99,12 +108,14 @@ test("saves code, checks it, and restores the lesson after reload", async ({ pag
   await page.getByRole("button", { name: "Проверить исправление" }).click();
   await expect(page.getByText("Проверка пройдена.", { exact: true }).first()).toBeVisible();
 
+  await expect.poll(() => savedProgress?.editorCode ?? "").toContain("[username]");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.reload();
-  await expect(page.locator(".monaco-editor").first()).toBeVisible();
-  await expect.poll(async () => {
-    await page.locator(".monaco-editor").first().click();
-    await page.keyboard.press("Control+A");
-    await page.keyboard.press("Control+C");
-    return await page.evaluate(() => navigator.clipboard.readText().catch(() => ""));
-  }).toContain("[username]");
+  const restoredEditor = page.locator(".monaco-editor").first();
+  await expect(restoredEditor).toBeVisible();
+  await restoredEditor.click();
+  await page.keyboard.press("Control+A");
+  await page.keyboard.press("Control+C");
+  const restoredCode = await page.evaluate(() => navigator.clipboard.readText());
+  expect(restoredCode).toContain("[username]");
 });
