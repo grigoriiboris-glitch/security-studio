@@ -18,7 +18,7 @@ const demoResult = ref<DemoResult | null>(null);
 const selectedExample = ref<"vulnerable" | "fixed">("vulnerable");
 const runtimeBusy = ref(false);
 const runtimeRun = ref<SyntheticRun | null>(null);
-const httpRuntimeLessonIds = new Set(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]);
+const httpRuntimeLessonIds = new Set(["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"]);
 const runtimeEvidence = ref<SyntheticEvidence | null>(null);
 const labOptions = [
   { label: "OWASP Juice Shop", value: "juice-shop" },
