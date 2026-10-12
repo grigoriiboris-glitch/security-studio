@@ -198,6 +198,23 @@ describe("Security Studio API", () => {
     })).statusCode).toBe(400);
   });
 
+  it("reports runtime coverage honestly for all 30 lessons", async () => {
+    const app = await makeApp();
+    const response = await app.inject({ method: "GET", url: "/api/labs/scenarios" });
+    expect(response.statusCode).toBe(200);
+    const scenarios = response.json().scenarios as Array<{
+      lessonId: string;
+      runtimeStatus: string;
+      workflow: { exploitProbe: boolean; runtimeRetest: boolean };
+    }>;
+    expect(scenarios).toHaveLength(30);
+    expect(new Set(scenarios.map((scenario) => scenario.lessonId)).size).toBe(30);
+    expect(scenarios.filter((scenario) => scenario.runtimeStatus === "runtime-ready").map((scenario) => scenario.lessonId))
+      .toEqual(["sql-injection"]);
+    expect(scenarios.find((scenario) => scenario.lessonId === "sql-injection")?.workflow.exploitProbe).toBe(true);
+    expect(scenarios.find((scenario) => scenario.lessonId === "xss-dom")?.workflow.runtimeRetest).toBe(false);
+  });
+
   it("checks the selected lesson and stores workspace code separately per lesson", async () => {
     const root = await mkdtemp(join(tmpdir(), "security-studio-multi-workspace-"));
     try {
