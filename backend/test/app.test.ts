@@ -210,7 +210,11 @@ describe("Security Studio API", () => {
     expect(scenarios).toHaveLength(30);
     expect(new Set(scenarios.map((scenario) => scenario.lessonId)).size).toBe(30);
     expect(scenarios.find((scenario) => scenario.lessonId === "sql-injection")?.runtimeStatus).toBe("runtime-ready");
-    expect(scenarios.filter((scenario) => scenario.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(29);
+    expect(scenarios.filter((scenario) => scenario.runtimeStatus === "runtime-ready")).toHaveLength(8);
+    expect(scenarios.filter((scenario) => scenario.runtimeStatus === "synthetic-runtime-ready")).toHaveLength(22);
+    for (const lessonId of ["xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf"]) {
+      expect(scenarios.find((scenario) => scenario.lessonId === lessonId)?.runtimeStatus).toBe("runtime-ready");
+    }
     expect(scenarios.every((scenario) => scenario.workflow.exploitProbe && scenario.workflow.remediationCheck &&
       scenario.workflow.runtimeRetest && scenario.workflow.reset)).toBe(true);
   });
