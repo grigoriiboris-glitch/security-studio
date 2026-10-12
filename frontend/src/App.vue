@@ -4,7 +4,7 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
-import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, type DemoResult } from "./services/api";
+import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, createSyntheticRun, exploitSyntheticRun, fixSyntheticRun, retestSyntheticRun, resetSyntheticRun, type DemoResult, type SyntheticRun, type SyntheticEvidence } from "./services/api";
 import { useLabsStore } from "./stores/labs";
 
 const labs = useLabsStore();
@@ -16,6 +16,9 @@ const demoBusy = ref(false);
 const savingCode = ref(false);
 const demoResult = ref<DemoResult | null>(null);
 const selectedExample = ref<"vulnerable" | "fixed">("vulnerable");
+const runtimeBusy = ref(false);
+const runtimeRun = ref<SyntheticRun | null>(null);
+const runtimeEvidence = ref<SyntheticEvidence | null>(null);
 const labOptions = [
   { label: "OWASP Juice Shop", value: "juice-shop" },
   { label: "OWASP NodeGoat", value: "nodegoat" }
@@ -70,6 +73,8 @@ function loadExample(kind: "vulnerable" | "fixed") {
 }
 async function selectLesson(id: string) {
   selectedLessonId.value = id;
+  runtimeRun.value = null;
+  runtimeEvidence.value = null;
   const selected = lessons.find((item) => item.id === id) ?? lessons[0];
   switchingLesson.value = true;
   labs.checkResult = null;
@@ -140,6 +145,56 @@ async function saveCode() {
   } finally {
     savingCode.value = false;
   }
+}
+async function startSyntheticRun() {
+  runtimeBusy.value = true;
+  runtimeEvidence.value = null;
+  try {
+    runtimeRun.value = await createSyntheticRun(lesson.value.id);
+    ElMessage.success("Синтетическая лаборатория подготовлена.");
+  } catch {
+    ElMessage.error("Не удалось подготовить сценарий. Проверьте подключение к API.");
+  } finally { runtimeBusy.value = false; }
+}
+async function runSyntheticExploit() {
+  if (!runtimeRun.value) return;
+  runtimeBusy.value = true;
+  try {
+    runtimeEvidence.value = await exploitSyntheticRun(lesson.value.id, runtimeRun.value.runId);
+    runtimeRun.value.phase = runtimeEvidence.value.phase;
+    runtimeRun.value.fixed = !runtimeEvidence.value.vulnerable;
+  } catch { ElMessage.error("Не удалось выполнить контрольный probe."); }
+  finally { runtimeBusy.value = false; }
+}
+async function applySyntheticFix() {
+  if (!runtimeRun.value) return;
+  runtimeBusy.value = true;
+  try {
+    runtimeEvidence.value = await fixSyntheticRun(lesson.value.id, runtimeRun.value.runId, labs.editorCode);
+    runtimeRun.value.phase = runtimeEvidence.value.phase;
+    runtimeRun.value.fixed = runtimeEvidence.value.phase === "fixed" || runtimeEvidence.value.phase === "passed";
+  } catch { ElMessage.error("Не удалось проверить исправление в лаборатории."); }
+  finally { runtimeBusy.value = false; }
+}
+async function runSyntheticRetest() {
+  if (!runtimeRun.value) return;
+  runtimeBusy.value = true;
+  try {
+    runtimeEvidence.value = await retestSyntheticRun(lesson.value.id, runtimeRun.value.runId);
+    runtimeRun.value.phase = runtimeEvidence.value.phase;
+    runtimeRun.value.fixed = !runtimeEvidence.value.vulnerable;
+  } catch { ElMessage.error("Не удалось выполнить runtime retest."); }
+  finally { runtimeBusy.value = false; }
+}
+async function resetSynthetic() {
+  runtimeBusy.value = true;
+  try {
+    if (runtimeRun.value) runtimeRun.value = await resetSyntheticRun(lesson.value.id, runtimeRun.value.runId);
+    else runtimeRun.value = await createSyntheticRun(lesson.value.id);
+    runtimeEvidence.value = null;
+    ElMessage.success("Сценарий сброшен в исходное состояние.");
+  } catch { ElMessage.error("Не удалось сбросить сценарий."); }
+  finally { runtimeBusy.value = false; }
 }
 async function toggleLab() {
   if (labs.activeLab) await labs.stopActiveLab();
@@ -243,6 +298,28 @@ async function resetLab() {
             </section>
 
             <section class="fix-card"><div class="fix-icon">✓</div><div><div class="eyebrow">03 / ЗАКРЕПИТЕ</div><h2>Как исправить</h2><p>{{ lesson.mitigation }}</p></div></section>
+
+            <section class="info-card runtime-card">
+              <div class="section-heading">
+                <div><div class="eyebrow">04 / ПРОВЕРЬТЕ В ДЕЙСТВИИ</div><h2>Runtime-цикл уязвимости</h2></div>
+                <el-tag :type="runtimeRun?.phase === 'passed' ? 'success' : runtimeRun ? 'warning' : 'info'">{{ runtimeRun?.phase ?? "не запущен" }}</el-tag>
+              </div>
+              <p class="body-copy">Изолированная синтетическая мишень: контрольный exploit → проверка кода исправления → повторный probe. Код из редактора не исполняется, а проверяется backend-verifier-ом.</p>
+              <div class="editor-actions runtime-actions">
+                <el-button v-if="!runtimeRun" type="primary" :loading="runtimeBusy" @click="startSyntheticRun">Подготовить сценарий</el-button>
+                <template v-else>
+                  <el-button :disabled="runtimeRun.phase !== 'ready' && runtimeRun.phase !== 'exploited'" :loading="runtimeBusy" @click="runSyntheticExploit">1. Exploit probe</el-button>
+                  <el-button type="primary" :disabled="runtimeRun.phase !== 'exploited'" :loading="runtimeBusy" @click="applySyntheticFix">2. Проверить fix</el-button>
+                  <el-button type="success" :disabled="runtimeRun.phase !== 'fixed'" :loading="runtimeBusy" @click="runSyntheticRetest">3. Retest</el-button>
+                  <el-button :loading="runtimeBusy" @click="resetSynthetic">Сбросить</el-button>
+                </template>
+              </div>
+              <div v-if="runtimeEvidence" class="check-result" :class="{ passed: runtimeEvidence.passed && !runtimeEvidence.vulnerable }">
+                <div class="check-result-title"><span>{{ runtimeEvidence.passed ? "✓" : "!" }}</span>{{ runtimeEvidence.message }}</div>
+                <ul><li v-for="item in runtimeEvidence.evidence" :key="item">{{ item }}</li></ul>
+                <p v-if="runtimeEvidence.remediation">{{ runtimeEvidence.remediation.message }}</p>
+              </div>
+            </section>
           </div>
 
           <div class="assistant-column">
