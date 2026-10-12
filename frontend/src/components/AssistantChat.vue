@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { onMounted, shallowRef } from "vue";
-import { defineProps } from "vue";
 import type { UIMessage } from "ai";
 import {
   AuiConfig, AuiProvider, ComposerPrimitiveInput, ComposerPrimitiveSend,
