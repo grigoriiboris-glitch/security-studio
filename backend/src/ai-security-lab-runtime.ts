@@ -19,7 +19,7 @@ type Phase = "ready" | "exploited" | "fixed" | "passed";
 type Session = { runId: string; labId: LabId; phase: Phase; controls: Controls; evidence: Array<{ step: string; message: string; passed: boolean }>; createdAt: string };
 const sessions = new Map<string, Session>();
 const catalogById = new Map<string, typeof aiSecurityLabCatalog[number]>(aiSecurityLabCatalog.map((lab) => [lab.id, lab]));
-const controlsFor = (labId: LabId): Controls => Object.fromEntries(aiSecurityLabCatalog.map((lab) => [lab.control, false]));
+const controlsFor = (): Controls => Object.fromEntries(aiSecurityLabCatalog.map((lab) => [lab.control, false]));
 const keyFor = (labId: string, runId: string) => labId + ":" + runId;
 
 export function registerAISecurityLabRoutes(app: FastifyInstance): void {
@@ -27,7 +27,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
   app.post("/api/ai-security/labs/:labId/reset", async (request, reply) => {
     const { labId } = request.params as { labId?: string };
     if (!labId || !catalogById.has(labId)) return reply.code(400).send({ error: "Unknown AI Security lab." });
-    const run: Session = { runId: randomUUID(), labId: labId as LabId, phase: "ready", controls: controlsFor(labId as LabId), evidence: [], createdAt: new Date().toISOString() };
+    const run: Session = { runId: randomUUID(), labId: labId as LabId, phase: "ready", controls: controlsFor(), evidence: [], createdAt: new Date().toISOString() };
     sessions.set(keyFor(labId, run.runId), run);
     return { run, mode: "server-fixtures", liveModelTesting: false };
   });
