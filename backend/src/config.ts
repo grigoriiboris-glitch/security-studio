@@ -19,3 +19,9 @@ export const config = {
       .split(",").map((origin) => origin.trim()).filter(Boolean)
   )
 };
+
+export function assertSafeApiBind(host: string = config.apiHost, nodeEnv: string | undefined = process.env.NODE_ENV): void {
+  if (nodeEnv === "production" && !["127.0.0.1", "::1", "localhost"].includes(host)) {
+    throw new Error("Security Studio API must bind to loopback in production. Use a same-host reverse proxy for external access.");
+  }
+}
