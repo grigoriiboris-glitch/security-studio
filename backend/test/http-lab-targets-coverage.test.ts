@@ -11,7 +11,7 @@ type FixtureCase = {
 };
 
 const request = (app: FastifyInstance, url: string, method: "GET" | "POST" = "GET", payload?: Record<string, unknown>) =>
-  app.inject({ method, url, ...(payload === undefined ? {} : { payload }) });
+  app.inject({ method, url, headers: internalLabControlHeaders(), ...(payload === undefined ? {} : { payload }) });
 
 const cases: FixtureCase[] = [
   {
