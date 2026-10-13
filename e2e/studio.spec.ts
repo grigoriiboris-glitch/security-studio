@@ -312,3 +312,55 @@ test("progress dashboard exports JSON and CSV files", async ({ page }) => {
   await page.getByRole("menuitem", { name: /CSV/ }).click();
   expect((await csvDownload).suggestedFilename()).toBe("security-studio-progress.csv");
 });
+
+
+test("attack chains navigate to lessons and OpenAPI YAML import lists endpoints without sending requests", async ({ page }) => {
+  await page.route("**/api/progress/**", async (route) => {
+    await route.fulfill({ json: { progress: null } });
+  });
+  await page.route("**/api/workspace/idor", async (route) => {
+    await route.fulfill({ json: { code: null, file: "solution.js" } });
+  });
+  await page.goto("/");
+  const tools = page.getByRole("region", { name: "Цепочки атак и импорт OpenAPI" });
+  await expect(tools).toBeVisible();
+  await tools.getByRole("button", { name: "Утечка данных" }).click();
+  await expect(tools).toContainText("От обхода авторизации к инъекциям");
+  await tools.getByRole("button", { name: /IDOR/ }).click();
+  await expect(page.getByRole("heading", { name: "IDOR / BOLA", exact: true })).toBeVisible();
+
+  const yaml = [
+    "openapi: 3.0.3",
+    "info:",
+    "  title: Demo API",
+    "  version: 1.0.0",
+    "paths:",
+    "  /users:",
+    "    get:",
+    "      summary: List users",
+    "      operationId: listUsers",
+    "    post:",
+    "      summary: Create user"
+  ].join("\n");
+  await tools.locator('input[type="file"]').setInputFiles({
+    name: "demo-openapi.yaml",
+    mimeType: "text/yaml",
+    buffer: Buffer.from(yaml)
+  });
+  await expect(tools).toContainText("3.0.3 · 2 операций");
+  await expect(tools).toContainText("GET");
+  await expect(tools).toContainText("POST");
+  await expect(tools).toContainText("/users");
+  await expect(tools).toContainText("Запросы к указанным серверам не выполняются");
+});
+
+test("OpenAPI importer rejects documents without a supported version and paths", async ({ page }) => {
+  await page.goto("/");
+  const tools = page.getByRole("region", { name: "Цепочки атак и импорт OpenAPI" });
+  await tools.locator('input[type="file"]').setInputFiles({
+    name: "invalid.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ info: { title: "No spec version" }, paths: {} }))
+  });
+  await expect(tools).toContainText("Не найдена версия OpenAPI 3.x или Swagger 2.0.");
+});
