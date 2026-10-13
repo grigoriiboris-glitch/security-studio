@@ -153,7 +153,13 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   const demoFetch = dependencies.demoFetch ?? fetch;
   const workspace = dependencies.workspace ?? createExerciseWorkspace();
   const app = Fastify({ logger: false, bodyLimit: 256 * 1024, trustProxy: false });
-  app.register(helmet, { contentSecurityPolicy: process.env.NODE_ENV === "production" ? true : false, crossOriginResourcePolicy: { policy: "same-site" } });
+  app.register(helmet, { contentSecurityPolicy: process.env.NODE_ENV === "production" ? {
+      directives: {
+        workerSrc: ["'self'", "blob:"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: null
+      }
+    } : false, crossOriginResourcePolicy: { policy: "same-site" } });
   app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
   registerHttpLabTargets(app);
   registerAISecurityLabRoutes(app);
