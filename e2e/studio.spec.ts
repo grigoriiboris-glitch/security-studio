@@ -270,3 +270,45 @@ test("failed fix shows runtime evidence and keeps retest disabled", async ({ pag
   await expect(result).toContainText("Прямой вывод req.query.value.");
   await expect(page.getByRole("button", { name: "3. Retest" })).toBeDisabled();
 });
+
+
+test("skill map summarizes saved verifier results and supports lesson navigation", async ({ page }) => {
+  await page.route("**/api/progress/**", async (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").pop();
+    if (id === "sql-injection") {
+      await route.fulfill({ json: { progress: { lessonId: id, editorCode: "", selectedLabId: "juice-shop", checkResult: { passed: true, message: "Parameterized query confirmed.", evidence: [] }, updatedAt: "2026-10-01T12:00:00.000Z" } } });
+      return;
+    }
+    if (id === "xss-dom") {
+      await route.fulfill({ json: { progress: { lessonId: id, editorCode: "", selectedLabId: "juice-shop", checkResult: { passed: false, message: "Unsafe sink remains.", evidence: [] }, updatedAt: "2026-10-02T12:00:00.000Z" } } });
+      return;
+    }
+    await route.fulfill({ json: { progress: null } });
+  });
+  await page.route("**/api/workspace/xss-dom", async (route) => {
+    await route.fulfill({ json: { code: null, file: "solution.js" } });
+  });
+  await page.goto("/");
+  const map = page.getByRole("region", { name: "Карта навыков и прогресс обучения" });
+  await expect(map).toBeVisible();
+  await expect(map).toContainText("SQL Injection");
+  await expect(map).toContainText("Пройдена");
+  await expect(map).toContainText("Повторить");
+  await expect(map).toContainText("3%");
+  await map.getByRole("button", { name: /DOM-based XSS/ }).click();
+  await expect(page.getByRole("heading", { name: "DOM-based XSS", exact: true })).toBeVisible();
+});
+
+test("progress dashboard exports JSON and CSV files", async ({ page }) => {
+  await page.goto("/");
+  const map = page.getByRole("region", { name: "Карта навыков и прогресс обучения" });
+  await map.getByRole("button", { name: "Экспорт прогресса" }).click();
+  const jsonDownload = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /JSON/ }).click();
+  expect((await jsonDownload).suggestedFilename()).toBe("security-studio-progress.json");
+
+  await map.getByRole("button", { name: "Экспорт прогресса" }).click();
+  const csvDownload = page.waitForEvent("download");
+  await page.getByRole("menuitem", { name: /CSV/ }).click();
+  expect((await csvDownload).suggestedFilename()).toBe("security-studio-progress.csv");
+});
