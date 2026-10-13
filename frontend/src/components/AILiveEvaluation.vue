@@ -6,6 +6,7 @@ type EvalStatus = { enabled: boolean; providerConfigured: boolean; model: string
 type EvalResult = { caseId: EvalCase; title: string; passed: boolean; verdict: "pass" | "fail"; output: string; evidence: string[]; model: string };
 
 const selectedCase = ref<EvalCase>("indirect-prompt-injection");
+const liveToken = ref("");
 const status = ref<EvalStatus | null>(null);
 const result = ref<EvalResult | null>(null);
 const busy = ref(false);
@@ -27,7 +28,7 @@ async function runEvaluation() {
   try {
     const response = await fetch("/api/ai-security/live-eval/run", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + liveToken.value },
       body: JSON.stringify({ caseId: selectedCase.value })
     });
     const data = await response.json() as EvalResult | { error?: string };
@@ -54,11 +55,12 @@ onMounted(refreshStatus);
     </div>
     <p class="body-copy">Два фиксированных синтетических теста для настроенной модели. По умолчанию выключено; произвольные промпты и внешние цели запрещены.</p>
     <div class="eval-controls">
+      <el-input v-model="liveToken" type="password" show-password autocomplete="off" placeholder="Токен live evaluation" aria-label="Токен live evaluation" />
       <el-select v-model="selectedCase" aria-label="Сценарий live evaluation">
         <el-option label="Indirect prompt injection" value="indirect-prompt-injection" />
         <el-option label="Synthetic secret leakage" value="synthetic-secret-leak" />
       </el-select>
-      <el-button type="primary" :loading="busy" :disabled="busy || !status?.enabled" @click="runEvaluation">Запустить проверку модели</el-button>
+      <el-button type="primary" :loading="busy" :disabled="busy || !status?.enabled || !liveToken.trim()" @click="runEvaluation">Запустить проверку модели</el-button>
       <el-button :disabled="busy" @click="refreshStatus">Обновить статус</el-button>
     </div>
     <p v-if="status" class="eval-meta">Модель: {{ status.model }} · Provider: {{ status.providerConfigured ? 'настроен' : 'не настроен' }}</p>
@@ -80,9 +82,9 @@ onMounted(refreshStatus);
 <style scoped>
 .live-eval { margin: 22px 0; }
 .eval-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.eval-controls .el-select { min-width: 240px; }
+.eval-controls .el-select, .eval-controls .el-input { min-width: 240px; }
 .eval-meta, .eval-note { color: var(--el-text-color-secondary); font-size: 12px; line-height: 1.6; margin-top: 12px; }
 .eval-result { margin-top: 18px; padding: 14px; border: 1px solid var(--el-border-color); border-radius: 10px; }
 .eval-result pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
-@media (max-width: 600px) { .eval-controls { align-items: stretch; flex-direction: column; } .eval-controls .el-select { width: 100%; } }
+@media (max-width: 600px) { .eval-controls { align-items: stretch; flex-direction: column; } .eval-controls .el-select, .eval-controls .el-input { width: 100%; } }
 </style>
