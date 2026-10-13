@@ -62,6 +62,21 @@ describe("server-side AI Security fixture API", () => {
     expect(retest.json().run.evidence.map((item: { step: string }) => item.step)).toEqual(["Attack probe", "Remediation", "Independent retest"]);
   });
 
+  it.each([
+    "foundations", "prompt-injection", "rag-isolation", "agent-tools", "privacy",
+    "model-security", "red-team", "infrastructure", "interview"
+  ])("completes the server-side attack/fix/retest lifecycle for %s", async (labId) => {
+    const app = await makeApp();
+    const reset = await app.inject({ method: "POST", url: `/api/ai-security/labs/${labId}/reset` });
+    expect(reset.statusCode).toBe(200);
+    const runId = reset.json().run.runId as string;
+    expect((await app.inject({ method: "POST", url: `/api/ai-security/labs/${labId}/${runId}/attack` })).statusCode).toBe(200);
+    expect((await app.inject({ method: "POST", url: `/api/ai-security/labs/${labId}/${runId}/fix` })).statusCode).toBe(200);
+    const retest = await app.inject({ method: "POST", url: `/api/ai-security/labs/${labId}/${runId}/retest` });
+    expect(retest.statusCode).toBe(200);
+    expect(retest.json()).toMatchObject({ passed: true, liveModelTesting: false, run: { phase: "passed" } });
+  });
+
   it("keeps sessions isolated and requires reset before a second attack", async () => {
     const app = await makeApp();
     const first = (await app.inject({ method: "POST", url: "/api/ai-security/labs/foundations/reset" })).json().run;
