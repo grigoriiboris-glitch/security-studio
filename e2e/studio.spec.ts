@@ -366,5 +366,5 @@ test("OpenAPI importer rejects documents without a supported version and paths",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify({ info: { title: "No spec version" }, paths: {} }))
   });
-  await expect(tools).toContainText("Не найдена версия OpenAPI 3.x или Swagger 2.0.");
+  await expect(tools).toContainText("Не найдена поддерживаемая версия OpenAPI 3.x или Swagger 2.0.");
 });
