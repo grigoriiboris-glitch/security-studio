@@ -73,7 +73,7 @@ function toggleOutcome(key: string) { completed.value[key] = !completed.value[ke
     </div>
     <div class="track-switch" role="group" aria-label="Профессиональный трек">
       <button v-for="track in tracks" :key="track.id" type="button" :class="{ active: activeTrack === track.id }" @click="activeTrack = track.id">
-        <strong>{{ track.title }}</strong><span>{{ track.subtitle }}</span>
+        <strong>{{ track.title }}</strong><span>{{ track.subtitle }}</span><small>{{ trackCount(track.id) }} {{ track.id === "appsec" ? "уроков" : "категорий" }}</small>
       </button>
     </div>
     <div class="track-layout">
