@@ -368,3 +368,22 @@ test("OpenAPI importer rejects documents without a supported version and paths",
   });
   await expect(tools).toContainText("Не найдена поддерживаемая версия OpenAPI 3.x или Swagger 2.0.");
 });
+
+
+test("all nine AI Security category labs complete attack → fix → independent retest", async ({ page }) => {
+  await page.goto("/");
+  const labs = page.getByRole("region", { name: "Практические AI Security лаборатории" });
+  await expect(labs.locator(".ai-lab-tabs button")).toHaveCount(9);
+
+  for (let index = 0; index < 9; index += 1) {
+    await labs.locator(".ai-lab-tabs button").nth(index).click();
+    await labs.getByRole("button", { name: "1. Запустить атаку" }).click();
+    await expect(labs.getByText("Attack probe", { exact: true })).toBeVisible();
+    await labs.getByRole("button", { name: "2. Применить учебный fix" }).click();
+    await expect(labs.getByText("Remediation", { exact: true })).toBeVisible();
+    await labs.getByRole("button", { name: "3. Независимый retest" }).click();
+    await expect(labs.locator(".ai-lab-heading").getByText("Retest пройден", { exact: true })).toBeVisible();
+  }
+
+  await expect(labs.getByText("9/9 пройдены", { exact: true })).toBeVisible();
+});
