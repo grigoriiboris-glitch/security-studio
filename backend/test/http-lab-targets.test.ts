@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
+import { internalLabControlHeaders } from "../src/http-lab-targets.js";
 
 describe("controlled HTTP vulnerability targets", () => {
   const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
@@ -11,11 +12,11 @@ describe("controlled HTTP vulnerability targets", () => {
     apps.push(app);
     const runId = "test-" + lessonId;
     const base = "/api/labs/http-targets/" + lessonId + "/" + runId;
-    const prepared = await app.inject({ method: "POST", url: base + "/prepare" });
+    const prepared = await app.inject({ method: "POST", url: base + "/prepare", headers: internalLabControlHeaders() });
     expect(prepared.statusCode).toBe(200);
     const url = base + "/fixture" + query;
     const vulnerable = await app.inject({ method, url, ...(method === "POST" && lessonId === "xss-stored" ? { payload: { comment: "<img src=x onerror=alert(1)>" } } : {}) });
-    const fixed = await app.inject({ method: "POST", url: base + "/fix" });
+    const fixed = await app.inject({ method: "POST", url: base + "/fix", headers: internalLabControlHeaders() });
     expect(fixed.statusCode).toBe(200);
     const protectedResponse = await app.inject({ method, url, ...(method === "POST" && lessonId === "xss-stored" ? { payload: { comment: "<img src=x onerror=alert(1)>" } } : {}) });
     return { app, base, vulnerable, protectedResponse };
@@ -83,7 +84,7 @@ describe("controlled HTTP vulnerability targets", () => {
     await app.ready();
     apps.push(app);
     const base = "/api/labs/scenarios/" + lessonId;
-    const created = await app.inject({ method: "POST", url: base + "/reset" });
+    const created = await app.inject({ method: "POST", url: base + "/reset", headers: internalLabControlHeaders() });
     expect(created.statusCode).toBe(200);
     expect(created.json().mode).toBe("controlled-http");
     const runId = created.json().run.runId;
