@@ -6,8 +6,10 @@ const supported = new Set<LessonId>([
   "xss-reflected", "xss-stored", "xss-dom", "idor", "csrf", "path-traversal", "ssrf", "broken-access-control", "broken-authentication", "session-fixation", "password-reset", "file-upload", "command-injection", "xxe", "ssti", "open-redirect", "cors", "clickjacking", "security-headers", "secrets-exposure", "sensitive-data", "jwt-validation", "mass-assignment", "rate-limiting", "business-logic", "prototype-pollution", "nosql-injection", "ldap-injection", "insecure-deserialization"
 ]);
 
-type TargetState = { fixed: boolean; storedComment: string; attempts: number };
+type TargetState = { fixed: boolean; storedComment: string; attempts: number; createdAt: number };
 const states = new Map<string, TargetState>();
+const MAX_HTTP_TARGET_STATES = 500;
+const HTTP_TARGET_TTL_MS = 2 * 60 * 60 * 1000;
 const controlToken = randomBytes(32).toString("hex");
 const controlHeader = "x-security-studio-internal";
 export function internalLabControlHeaders(): Record<string, string> { return { [controlHeader]: controlToken }; }
@@ -21,7 +23,25 @@ const key = (lessonId: LessonId, runId: string) => lessonId + ":" + runId;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 })[char]!);
-const stateFor = (lessonId: LessonId, runId: string) => states.get(key(lessonId, runId));
+function pruneTargetStates(now = Date.now()): void {
+  for (const [stateKey, state] of states) {
+    if (now - state.createdAt > HTTP_TARGET_TTL_MS) states.delete(stateKey);
+  }
+  while (states.size >= MAX_HTTP_TARGET_STATES) {
+    const oldestKey = states.keys().next().value as string | undefined;
+    if (oldestKey === undefined) break;
+    states.delete(oldestKey);
+  }
+}
+function stateFor(lessonId: LessonId, runId: string): TargetState | undefined {
+  const stateKey = key(lessonId, runId);
+  const state = states.get(stateKey);
+  if (state && Date.now() - state.createdAt > HTTP_TARGET_TTL_MS) {
+    states.delete(stateKey);
+    return undefined;
+  }
+  return state;
+}
 
 /**
  * Controlled HTTP fixtures for the first practical lesson group. These handlers are the
@@ -33,7 +53,8 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
     if (!isInternalControlRequest(request)) return reply.code(404).send({ error: "Target session not found." });
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     if (!supported.has(lessonId) || !runId || runId.length > 128) return reply.code(400).send({ error: "HTTP target is not available for this lesson." });
-    states.set(key(lessonId, runId), { fixed: false, storedComment: "", attempts: 0 });
+    pruneTargetStates();
+    states.set(key(lessonId, runId), { fixed: false, storedComment: "", attempts: 0, createdAt: Date.now() });
     return { lessonId, runId, target: "controlled-http-fixture", fixed: false };
   });
 
