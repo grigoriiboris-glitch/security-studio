@@ -4,6 +4,7 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import BrowserProbe from "./components/BrowserProbe.vue";
 import ProgressDashboard from "./components/ProgressDashboard.vue";
+import LearningTracks from "./components/LearningTracks.vue";
 import AttackChains from "./components/AttackChains.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
@@ -261,6 +262,7 @@ async function resetLab() {
           <el-tag type="warning" effect="dark">{{ lesson.level }}</el-tag>
         </div>
 
+        <LearningTracks :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
         <ProgressDashboard :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
         <AttackChains :lessons="lessons" @select-lesson="selectLesson" />
 
