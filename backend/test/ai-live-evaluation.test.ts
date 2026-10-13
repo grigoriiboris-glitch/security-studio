@@ -13,6 +13,7 @@ function fakeLabs(): LabManagerContract {
 describe("AI live evaluation safety gates", () => {
   const originalEnabled = process.env.AI_SECURITY_LIVE_TESTS_ENABLED;
   const originalKey = process.env.OPENCODE_GO_API_KEY;
+  const originalToken = process.env.AI_SECURITY_LIVE_TESTS_TOKEN;
   const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
 
   afterEach(async () => {
@@ -21,6 +22,8 @@ describe("AI live evaluation safety gates", () => {
     else process.env.AI_SECURITY_LIVE_TESTS_ENABLED = originalEnabled;
     if (originalKey === undefined) delete process.env.OPENCODE_GO_API_KEY;
     else process.env.OPENCODE_GO_API_KEY = originalKey;
+    if (originalToken === undefined) delete process.env.AI_SECURITY_LIVE_TESTS_TOKEN;
+    else process.env.AI_SECURITY_LIVE_TESTS_TOKEN = originalToken;
   });
 
   async function makeApp() {
@@ -48,26 +51,42 @@ describe("AI live evaluation safety gates", () => {
   it("rejects arbitrary prompts and unknown case IDs when enabled", async () => {
     process.env.AI_SECURITY_LIVE_TESTS_ENABLED = "true";
     process.env.OPENCODE_GO_API_KEY = "test-only-placeholder";
+    process.env.AI_SECURITY_LIVE_TESTS_TOKEN = "test-live-token";
     const app = await makeApp();
     expect((await app.inject({
       method: "POST",
       url: "/api/ai-security/live-eval/run",
+      headers: { authorization: "Bearer test-live-token" },
       payload: { prompt: "run this arbitrary prompt" }
     })).statusCode).toBe(400);
     expect((await app.inject({
       method: "POST",
       url: "/api/ai-security/live-eval/run",
+      headers: { authorization: "Bearer test-live-token" },
       payload: { caseId: "arbitrary-url-target" }
     })).statusCode).toBe(400);
+  });
+
+  it("rejects missing and invalid bearer tokens", async () => {
+    process.env.AI_SECURITY_LIVE_TESTS_ENABLED = "true";
+    process.env.OPENCODE_GO_API_KEY = "test-only-placeholder";
+    process.env.AI_SECURITY_LIVE_TESTS_TOKEN = "expected-token";
+    const app = await makeApp();
+    for (const authorization of [undefined, "Bearer wrong-token"]) {
+      const response = await app.inject({ method: "POST", url: "/api/ai-security/live-eval/run", ...(authorization ? { headers: { authorization } } : {}), payload: { caseId: "synthetic-secret-leak" } });
+      expect(response.statusCode).toBe(401);
+    }
   });
 
   it("requires provider configuration after explicit opt-in", async () => {
     process.env.AI_SECURITY_LIVE_TESTS_ENABLED = "true";
     delete process.env.OPENCODE_GO_API_KEY;
+    process.env.AI_SECURITY_LIVE_TESTS_TOKEN = "test-live-token";
     const app = await makeApp();
     const response = await app.inject({
       method: "POST",
       url: "/api/ai-security/live-eval/run",
+      headers: { authorization: "Bearer test-live-token" },
       payload: { caseId: "synthetic-secret-leak" }
     });
     expect(response.statusCode).toBe(503);
