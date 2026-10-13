@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { randomUUID } from "node:crypto";
+import { getAISecurityLabRun, saveAISecurityLabRun } from "./database.js";
 
 export const aiSecurityLabCatalog = [
   { id: "foundations", title: "AI Security Foundations", control: "trustSeparated", attack: "Untrusted content is mixed with privileged instructions.", fix: "Keep retrieved and user content explicitly untrusted; preserve instruction/data boundaries.", verifier: "Trust boundary remains enforced." },
@@ -21,6 +22,20 @@ const sessions = new Map<string, Session>();
 const catalogById = new Map<string, typeof aiSecurityLabCatalog[number]>(aiSecurityLabCatalog.map((lab) => [lab.id, lab]));
 const controlsFor = (): Controls => Object.fromEntries(aiSecurityLabCatalog.map((lab) => [lab.control, false]));
 const keyFor = (labId: string, runId: string) => labId + ":" + runId;
+function findSession(labId: string, runId: string): Session | null {
+  const key = keyFor(labId, runId);
+  const cached = sessions.get(key);
+  if (cached) return cached;
+  const stored = getAISecurityLabRun(labId, runId);
+  if (!stored) return null;
+  const run: Session = { ...stored, labId: stored.labId as LabId };
+  sessions.set(key, run);
+  return run;
+}
+function persistSession(run: Session): void {
+  sessions.set(keyFor(run.labId, run.runId), run);
+  saveAISecurityLabRun(run);
+}
 
 export function registerAISecurityLabRoutes(app: FastifyInstance): void {
   app.get("/api/ai-security/labs", async () => ({ labs: aiSecurityLabCatalog, mode: "server-fixtures", liveModelTesting: false }));
@@ -28,12 +43,12 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     const { labId } = request.params as { labId?: string };
     if (!labId || !catalogById.has(labId)) return reply.code(400).send({ error: "Unknown AI Security lab." });
     const run: Session = { runId: randomUUID(), labId: labId as LabId, phase: "ready", controls: controlsFor(), evidence: [], createdAt: new Date().toISOString() };
-    sessions.set(keyFor(labId, run.runId), run);
+    persistSession(run);
     return { run, mode: "server-fixtures", liveModelTesting: false };
   });
   app.get("/api/ai-security/labs/:labId/:runId", async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
-    const run = sessions.get(keyFor(labId ?? "", runId ?? ""));
+    const run = findSession(labId ?? "", runId ?? "");
     if (!run) return reply.code(404).send({ error: "AI Security lab session not found." });
     return { run };
   });
@@ -45,6 +60,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     if (run.phase !== "ready") return reply.code(409).send({ error: "Reset the lab before running another attack." });
     run.phase = "exploited";
     run.evidence.push({ step: "Attack probe", message: lab.attack, passed: false });
+    persistSession(run);
     return { run, vulnerable: true, passed: true, message: "The synthetic attack fixture reproduced the configured unsafe condition.", liveModelTesting: false };
   });
   app.post("/api/ai-security/labs/:labId/:runId/fix", async (request, reply) => {
@@ -56,6 +72,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     run.controls[lab.control] = true;
     run.phase = "fixed";
     run.evidence.push({ step: "Remediation", message: lab.fix, passed: true });
+    persistSession(run);
     return { run, passed: true, message: "Teaching control enabled on the server-side fixture.", liveModelTesting: false };
   });
   app.post("/api/ai-security/labs/:labId/:runId/retest", async (request, reply) => {
@@ -67,6 +84,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     const passed = run.controls[lab.control] === true;
     run.phase = passed ? "passed" : "exploited";
     run.evidence.push({ step: "Independent retest", message: lab.verifier + (passed ? " — PASS" : " — FAIL"), passed });
+    persistSession(run);
     return { run, passed, vulnerable: !passed, message: passed ? "Server-side fixture retest passed." : "Server-side fixture retest failed.", liveModelTesting: false };
   });
 }
