@@ -54,7 +54,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
   });
   app.post("/api/ai-security/labs/:labId/:runId/attack", async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
-    const run = sessions.get(keyFor(labId ?? "", runId ?? ""));
+    const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
     if (!run || !lab) return reply.code(404).send({ error: "AI Security lab session not found." });
     if (run.phase !== "ready") return reply.code(409).send({ error: "Reset the lab before running another attack." });
@@ -65,7 +65,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
   });
   app.post("/api/ai-security/labs/:labId/:runId/fix", async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
-    const run = sessions.get(keyFor(labId ?? "", runId ?? ""));
+    const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
     if (!run || !lab) return reply.code(404).send({ error: "AI Security lab session not found." });
     if (run.phase !== "exploited") return reply.code(409).send({ error: "Run the attack before applying the teaching fix." });
@@ -77,7 +77,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
   });
   app.post("/api/ai-security/labs/:labId/:runId/retest", async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
-    const run = sessions.get(keyFor(labId ?? "", runId ?? ""));
+    const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
     if (!run || !lab) return reply.code(404).send({ error: "AI Security lab session not found." });
     if (run.phase !== "fixed") return reply.code(409).send({ error: "Apply the teaching fix before retesting." });
