@@ -5,6 +5,7 @@ import AssistantChat from "./components/AssistantChat.vue";
 import BrowserProbe from "./components/BrowserProbe.vue";
 import ProgressDashboard from "./components/ProgressDashboard.vue";
 import LearningTracks from "./components/LearningTracks.vue";
+import AISecurityLabs from "./components/AISecurityLabs.vue";
 import AttackChains from "./components/AttackChains.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
@@ -263,6 +264,7 @@ async function resetLab() {
         </div>
 
         <LearningTracks :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
+        <AISecurityLabs />
         <ProgressDashboard :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
         <AttackChains :lessons="lessons" @select-lesson="selectLesson" />
 
