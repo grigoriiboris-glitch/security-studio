@@ -92,10 +92,24 @@ const probeDescriptions: Record<LessonId, string> = {
 
 type InternalRun = LabRun & { probeCount: number };
 const runs = new Map<string, InternalRun>();
+const MAX_LAB_RUNS = 500;
+const LAB_RUN_TTL_MS = 2 * 60 * 60 * 1000;
 const runKey = (lessonId: LessonId, runId: string) => lessonId + ":" + runId;
+
+function pruneLabRuns(now = Date.now()): void {
+  for (const [key, run] of runs) {
+    if (now - Date.parse(run.createdAt) > LAB_RUN_TTL_MS) runs.delete(key);
+  }
+  while (runs.size >= MAX_LAB_RUNS) {
+    const oldestKey = runs.keys().next().value as string | undefined;
+    if (oldestKey === undefined) break;
+    runs.delete(oldestKey);
+  }
+}
 
 export function createLabRun(lessonId: LessonId): LabRun {
   if (!lessonIds.includes(lessonId)) throw new Error("Unknown lesson");
+  pruneLabRuns();
   const run: InternalRun = {
     runId: randomUUID(), lessonId, phase: "ready", fixed: false,
     createdAt: new Date().toISOString(), probeCount: 0
