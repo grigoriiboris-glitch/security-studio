@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { LessonId } from "./lessons.js";
 
 const supported = new Set<LessonId>([
@@ -7,6 +8,15 @@ const supported = new Set<LessonId>([
 
 type TargetState = { fixed: boolean; storedComment: string; attempts: number };
 const states = new Map<string, TargetState>();
+const controlToken = randomBytes(32).toString("hex");
+const controlHeader = "x-security-studio-internal";
+export function internalLabControlHeaders(): Record<string, string> { return { [controlHeader]: controlToken }; }
+function isInternalControlRequest(request: { headers: Record<string, string | string[] | undefined> }): boolean {
+  const value = request.headers[controlHeader];
+  const supplied = Array.isArray(value) ? value[0] : value;
+  if (typeof supplied !== "string" || supplied.length !== controlToken.length) return false;
+  return timingSafeEqual(Buffer.from(supplied), Buffer.from(controlToken));
+}
 const key = (lessonId: LessonId, runId: string) => lessonId + ":" + runId;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -20,6 +30,7 @@ const stateFor = (lessonId: LessonId, runId: string) => states.get(key(lessonId,
  */
 export function registerHttpLabTargets(app: FastifyInstance): void {
   app.post("/api/labs/http-targets/:lessonId/:runId/prepare", async (request, reply) => {
+    if (!isInternalControlRequest(request)) return reply.code(404).send({ error: "Target session not found." });
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     if (!supported.has(lessonId) || !runId || runId.length > 128) return reply.code(400).send({ error: "HTTP target is not available for this lesson." });
     states.set(key(lessonId, runId), { fixed: false, storedComment: "", attempts: 0 });
@@ -141,6 +152,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
   } });
 
   app.post("/api/labs/http-targets/:lessonId/:runId/fix", async (request, reply) => {
+    if (!isInternalControlRequest(request)) return reply.code(404).send({ error: "Target session not found." });
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     const state = stateFor(lessonId, runId);
     if (!supported.has(lessonId) || !state) return reply.code(404).send({ error: "Target session not found." });
@@ -149,6 +161,7 @@ export function registerHttpLabTargets(app: FastifyInstance): void {
   });
 
   app.post("/api/labs/http-targets/:lessonId/:runId/reset", async (request, reply) => {
+    if (!isInternalControlRequest(request)) return reply.code(404).send({ error: "Target session not found." });
     const { lessonId, runId } = request.params as { lessonId: LessonId; runId: string };
     const state = stateFor(lessonId, runId);
     if (!supported.has(lessonId) || !state) return reply.code(404).send({ error: "Target session not found." });
