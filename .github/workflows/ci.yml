@@ -28,6 +28,30 @@ jobs:
         run: npm test
       - name: Production build
         run: npm run build
+      - name: Production runtime smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          NODE_ENV=production npm start > /tmp/security-studio-production.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3001/api/healthz >/dev/null; then ready=1; break; fi
+            sleep 1
+          done
+          if [ "$ready" -ne 1 ]; then cat /tmp/security-studio-production.log; exit 1; fi
+          curl -fsS http://127.0.0.1:3001/ -o /tmp/security-studio-index.html
+          grep -q '/assets/.*\.js' /tmp/security-studio-index.html
+          asset_path=$(grep -oE '/assets/[^"]+\.js' /tmp/security-studio-index.html | head -n 1)
+          test -n "$asset_path"
+          curl -fsS "http://127.0.0.1:3001$asset_path" -o /tmp/security-studio-asset.js
+          test -s /tmp/security-studio-asset.js
+          api_status=$(curl -s -o /tmp/security-studio-api-404.json -w '%{http_code}' http://127.0.0.1:3001/api/not-a-route)
+          test "$api_status" = "404"
+          spa_status=$(curl -s -o /tmp/security-studio-spa.html -w '%{http_code}' http://127.0.0.1:3001/lesson/unknown)
+          test "$spa_status" = "200"
+          grep -q '<div id="app">' /tmp/security-studio-spa.html
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
       - name: Browser end-to-end tests
