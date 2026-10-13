@@ -27,6 +27,16 @@ database.exec(`
     PRIMARY KEY (conversation_id, message_id)
   );
   CREATE INDEX IF NOT EXISTS idx_chat_messages_created_at ON chat_messages(created_at);
+  CREATE TABLE IF NOT EXISTS ai_security_lab_runs (
+    run_id TEXT PRIMARY KEY,
+    lab_id TEXT NOT NULL,
+    phase TEXT NOT NULL,
+    controls_json TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_ai_security_lab_runs_updated ON ai_security_lab_runs(updated_at);
 `);
 
 export type SavedProgress = {
@@ -102,4 +112,42 @@ export function getChatMessages(conversationId: string): unknown[] {
     "SELECT message_json FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC, rowid ASC LIMIT 200"
   ).all(conversationId) as Array<{ message_json: string }>;
   return rows.map((row) => JSON.parse(row.message_json) as unknown);
+}
+
+
+export type StoredAISecurityRun = {
+  runId: string;
+  labId: string;
+  phase: "ready" | "exploited" | "fixed" | "passed";
+  controls: Record<string, boolean>;
+  evidence: Array<{ step: string; message: string; passed: boolean }>;
+  createdAt: string;
+};
+
+export function saveAISecurityLabRun(run: StoredAISecurityRun): void {
+  database.prepare(
+    "INSERT INTO ai_security_lab_runs (run_id, lab_id, phase, controls_json, evidence_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now')) " +
+    "ON CONFLICT(run_id) DO UPDATE SET phase = excluded.phase, controls_json = excluded.controls_json, evidence_json = excluded.evidence_json, updated_at = datetime('now')"
+  ).run(run.runId, run.labId, run.phase, JSON.stringify(run.controls), JSON.stringify(run.evidence), run.createdAt);
+  database.prepare(
+    "DELETE FROM ai_security_lab_runs WHERE run_id NOT IN (SELECT run_id FROM ai_security_lab_runs ORDER BY updated_at DESC, rowid DESC LIMIT 500)"
+  ).run();
+}
+
+export function getAISecurityLabRun(labId: string, runId: string): StoredAISecurityRun | null {
+  const row = database.prepare(
+    "SELECT run_id, lab_id, phase, controls_json, evidence_json, created_at FROM ai_security_lab_runs WHERE lab_id = ? AND run_id = ?"
+  ).get(labId, runId) as {
+    run_id: string; lab_id: string; phase: StoredAISecurityRun["phase"];
+    controls_json: string; evidence_json: string; created_at: string;
+  } | undefined;
+  if (!row) return null;
+  return {
+    runId: row.run_id,
+    labId: row.lab_id,
+    phase: row.phase,
+    controls: JSON.parse(row.controls_json) as Record<string, boolean>,
+    evidence: JSON.parse(row.evidence_json) as StoredAISecurityRun["evidence"],
+    createdAt: row.created_at
+  };
 }
