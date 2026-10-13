@@ -385,7 +385,7 @@ test("all nine AI Security category labs complete attack → fix → independent
     const parts = new URL(request.url()).pathname.split("/").filter(Boolean);
     const labId = parts[3] ?? "";
     const action = parts[5] ?? "";
-    if (request.method() === "POST" && parts.length === 4 && parts[4] === "reset") {
+    if (request.method() === "POST" && parts.length === 5 && parts[4] === "reset") {
       const run = { runId: "e2e-" + labId, labId, phase: "ready", controls: Object.fromEntries(Object.values(controls).map((key) => [key, false])), evidence: [], createdAt: "2026-10-13T00:00:00.000Z" };
       states.set(labId, run);
       await route.fulfill({ json: { run, mode: "server-fixtures", liveModelTesting: false } });
