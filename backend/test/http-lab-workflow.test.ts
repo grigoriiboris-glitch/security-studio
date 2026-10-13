@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
+import { internalLabControlHeaders } from "../src/http-lab-targets.js";
 import { httpTargetLessonIds } from "../src/http-lab-targets.js";
 import type { LessonId } from "../src/lessons.js";
 
@@ -50,7 +51,7 @@ describe("public runtime workflow for every controlled HTTP lesson", () => {
     apps.push(app);
 
     const base = "/api/labs/scenarios/" + lessonId;
-    const created = await app.inject({ method: "POST", url: base + "/reset" });
+    const created = await app.inject({ method: "POST", url: base + "/reset", headers: internalLabControlHeaders() });
     expect(created.statusCode).toBe(200);
     expect(created.json()).toMatchObject({ mode: "controlled-http", codeExecution: false });
     const runId = created.json().run.runId as string;
