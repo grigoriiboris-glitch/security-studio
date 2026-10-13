@@ -68,3 +68,43 @@ button, input, textarea { font: inherit; }
 .browser-probe-card .body-copy { margin: 0; }
 .browser-probe-status { --el-alert-padding: 10px 12px; }
 .browser-probe-frame { width: 100%; height: 90px; border: 1px solid var(--border); border-radius: 8px; background: #0c1323; }
+
+
+/* Skill map and portable progress exports */
+.progress-dashboard { margin: 0 0 22px; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: linear-gradient(145deg, #131c30, #101727); }
+.progress-dashboard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.progress-dashboard-head h2 { margin-top: 6px; }
+.progress-dashboard-head p { max-width: 650px; margin: 8px 0 0; color: #9ba8c1; font-size: 11px; line-height: 1.6; }
+.progress-dashboard-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.progress-overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.progress-stat { display: flex; flex-direction: column; gap: 5px; padding: 11px 12px; border: 1px solid #26324a; border-radius: 9px; background: #0c1323; }
+.progress-stat strong { font-size: 19px; color: #e8ecf6; }
+.progress-stat span { color: var(--muted); font-size: 10px; }
+.progress-track { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: #26324a; }
+.progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #5ad7d0, #60d9a4); transition: width .2s ease; }
+.skill-map { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.skill-map-item { display: flex; align-items: center; gap: 9px; min-width: 0; padding: 10px; text-align: left; color: var(--text); border: 1px solid #26324a; border-radius: 9px; background: #0c1323; cursor: pointer; }
+.skill-map-item:hover, .skill-map-item:focus-visible { border-color: #7186d8; outline: none; }
+.skill-map-item.skill-selected { box-shadow: 0 0 0 1px #738bff inset; border-color: #738bff; }
+.skill-map-number { display: grid; place-items: center; flex: 0 0 28px; height: 28px; border-radius: 7px; background: #202b41; color: #b4c1d8; font-size: 10px; font-weight: 800; }
+.skill-map-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 4px; }
+.skill-map-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 650; }
+.skill-map-copy small { color: var(--muted); font-size: 10px; }
+.skill-map-status { flex: 0 0 auto; color: #8795ad; font-size: 10px; }
+.skill-passed .skill-map-number { background: #153c39; color: #60d9a4; }
+.skill-passed .skill-map-status { color: #60d9a4; }
+.skill-review .skill-map-number { background: #44351c; color: #f3c86d; }
+.skill-review .skill-map-status { color: #f3c86d; }
+.skill-map-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; color: var(--muted); font-size: 10px; }
+.skill-map-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #65728a; }
+.legend-passed { background: #60d9a4; }.legend-review { background: #f3c86d; }.legend-new { background: #65728a; }
+@media (max-width: 760px) {
+  .progress-dashboard { padding: 13px; }
+  .progress-dashboard-head { flex-direction: column; }
+  .progress-dashboard-actions { justify-content: flex-start; }
+  .progress-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+  .progress-stat { padding: 9px; }.progress-stat strong { font-size: 16px; }
+  .skill-map { grid-template-columns: minmax(0, 1fr); }
+  .skill-map-status { font-size: 9px; }
+}
