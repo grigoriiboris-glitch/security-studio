@@ -24,3 +24,5 @@ API health: http://127.0.0.1:3001/api/healthz
     npm run build
 
 Без Docker открывается UI и работают code-check/API health; запуск лаборатории вернёт понятную ошибку. Без API key AI отвечает конфигурационной ошибкой. Не запускайте Juice Shop и NodeGoat параллельно: backend держит не больше одного учебного контейнера.
+
+Live AI Security evaluation отключён по умолчанию. Для явного включения задайте `AI_SECURITY_LIVE_TESTS_ENABLED=true`, `AI_SECURITY_LIVE_TESTS_TOKEN` (длинный случайный секрет) и `OPENCODE_GO_API_KEY`. Передавайте токен только заголовком `Authorization: Bearer …`; не публикуйте его в репозитории, frontend или логах. В `.env.example` секрет оставлен пустым. Проверки используют только фиксированные синтетические кейсы.
