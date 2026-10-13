@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import BrowserProbe from "./components/BrowserProbe.vue";
+import ProgressDashboard from "./components/ProgressDashboard.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
 import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, createSyntheticRun, exploitSyntheticRun, fixSyntheticRun, retestSyntheticRun, resetSyntheticRun, type DemoResult, type SyntheticRun, type SyntheticEvidence } from "./services/api";
@@ -258,6 +259,8 @@ async function resetLab() {
           </div>
           <el-tag type="warning" effect="dark">{{ lesson.level }}</el-tag>
         </div>
+
+        <ProgressDashboard :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
 
         <div class="lab-toolbar">
           <div class="lab-picker">
