@@ -39,6 +39,10 @@ function download(filename: string, content: string, type: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
+function handleExport(command: string) {
+  if (command === "json") exportJson();
+  else exportCsv();
+}
 function exportJson() {
   const data = {
     format: "security-studio-progress-v1",
@@ -81,7 +85,7 @@ onMounted(() => { void refresh(); });
       </div>
       <div class="progress-dashboard-actions">
         <el-button size="small" :loading="loading" @click="refresh">Обновить</el-button>
-        <el-dropdown trigger="click" @command="(command: string) => command === 'json' ? exportJson() : exportCsv()">
+        <el-dropdown trigger="click" @command="handleExport">
           <el-button type="primary" size="small">Экспорт прогресса ▾</el-button>
           <template #dropdown>
             <el-dropdown-menu>
