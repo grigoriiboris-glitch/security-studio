@@ -351,7 +351,7 @@ test("attack chains navigate to lessons and OpenAPI YAML import lists endpoints 
   await expect(tools).toContainText("GET");
   await expect(tools).toContainText("POST");
   await expect(tools).toContainText("/users");
-  await expect(tools).toContainText("Запросы к указанным серверам не выполняются");
+  await expect(tools).toContainText("Импорт не подтверждает наличие уязвимостей и не отправляет трафик.");
 });
 
 test("OpenAPI importer rejects documents without a supported version and paths", async ({ page }) => {
