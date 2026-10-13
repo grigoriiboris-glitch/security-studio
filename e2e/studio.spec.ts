@@ -377,6 +377,7 @@ test("all nine AI Security category labs complete attack → fix → independent
 
   for (let index = 0; index < 9; index += 1) {
     await labs.locator(".ai-lab-tabs button").nth(index).click();
+    await labs.getByRole("button", { name: "Сбросить лабораторию" }).click();
     await labs.getByRole("button", { name: "1. Запустить атаку" }).click();
     await expect(labs.getByText("Attack probe", { exact: true })).toBeVisible();
     await labs.getByRole("button", { name: "2. Применить учебный fix" }).click();
