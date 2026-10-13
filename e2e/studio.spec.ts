@@ -352,6 +352,10 @@ test("attack chains navigate to lessons and OpenAPI YAML import lists endpoints 
   await expect(tools).toContainText("POST");
   await expect(tools).toContainText("/users");
   await expect(tools).toContainText("Импорт не подтверждает наличие уязвимостей и не отправляет трафик.");
+  await expect(tools).toContainText("Проверить:");
+  await expect(tools.getByRole("button", { name: /IDOR \/ BOLA/ }).first()).toBeVisible();
+  await tools.getByRole("button", { name: /IDOR \/ BOLA/ }).last().click();
+  await expect(page.getByRole("heading", { name: "IDOR / BOLA", exact: true })).toBeVisible();
 });
 
 test("OpenAPI importer rejects documents without a supported version and paths", async ({ page }) => {
