@@ -70,7 +70,7 @@ async function importOpenApi(event: Event) {
     const spec = parsed as { openapi?: unknown; swagger?: unknown; paths?: unknown };
     if (typeof spec.openapi !== "string" && spec.swagger !== "2.0") throw new Error("Не найдена версия OpenAPI 3.x или Swagger 2.0.");
     if (!spec.paths || typeof spec.paths !== "object" || Array.isArray(spec.paths)) throw new Error("В спецификации отсутствует объект paths.");
-    const operations: ApiOperation[] = [];
+    const operations: Array<Omit<ApiOperation, "recommendations">> = [];
     for (const [path, value] of Object.entries(spec.paths as Record<string, unknown>)) {
       if (!value || typeof value !== "object" || Array.isArray(value)) continue;
       for (const [method, details] of Object.entries(value as Record<string, unknown>)) {
