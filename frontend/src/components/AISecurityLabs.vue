@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { attackAISecurityLab, fetchAISecurityLab, fixAISecurityLab, resetAISecurityLab, retestAISecurityLab, type AISecurityRun } from "../services/api.js";
+import AILiveEvaluation from "./AILiveEvaluation.vue";
 
 type LabId = "foundations" | "prompt-injection" | "rag-isolation" | "agent-tools" | "privacy" | "model-security" | "red-team" | "infrastructure" | "interview";
 type Phase = "ready" | "exploited" | "fixed" | "passed";
@@ -259,6 +260,7 @@ onMounted(async () => {
       <p class="ai-lab-disclaimer">Ограничение: сервер проверяет детерминированные учебные fixtures, а не реальное поведение модели. Retest не доказывает безопасность production-системы. Для live model testing потребуется отдельный provider, изолированная тестовая среда и собственный набор оценочных критериев.</p>
     </div>
   </section>
+  <AILiveEvaluation />
 </template>
 
 <style scoped>
