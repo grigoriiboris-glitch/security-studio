@@ -169,8 +169,8 @@ async function runAttack() {
   try {
     const runId = await ensureRun(activeId.value);
     applyServerRun(activeId.value, await attackAISecurityLab(activeId.value, runId));
-  } catch {
-    errorMessage.value = "Атака не выполнена: сервер лаборатории недоступен или вернул ошибку.";
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? `Атака не выполнена: ${error.message}` : "Атака не выполнена: сервер лаборатории недоступен или вернул ошибку.";
   }
 }
 async function applyFix() {
@@ -178,8 +178,8 @@ async function applyFix() {
   errorMessage.value = "";
   try {
     applyServerRun(activeId.value, await fixAISecurityLab(activeId.value, state.value.runId));
-  } catch {
-    errorMessage.value = "Учебное исправление не применено. Повторите попытку.";
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? `Учебное исправление не применено: ${error.message}` : "Учебное исправление не применено. Повторите попытку.";
   }
 }
 async function retest() {
@@ -187,8 +187,8 @@ async function retest() {
   errorMessage.value = "";
   try {
     applyServerRun(activeId.value, await retestAISecurityLab(activeId.value, state.value.runId));
-  } catch {
-    errorMessage.value = "Серверная проверка не завершилась. Повторите retest.";
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? `Серверная проверка не завершилась: ${error.message}` : "Серверная проверка не завершилась. Повторите retest.";
   }
 }
 watch(states, value => {
