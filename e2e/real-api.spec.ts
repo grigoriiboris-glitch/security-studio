@@ -41,8 +41,8 @@ test.describe("real backend integration (no API route mocks)", () => {
     expect(await exploit.json()).toMatchObject({ phase: "exploited", vulnerable: true, passed: true });
 
     const rejectedSecondExploit = await request.post(base + "/" + run.runId + "/exploit");
-    expect(rejectedSecondExploit.status()).toBe(200);
-    expect(await rejectedSecondExploit.json()).toMatchObject({ phase: "exploited", vulnerable: true });
+    expect(rejectedSecondExploit.status()).toBe(409);
+    expect(await rejectedSecondExploit.json()).toMatchObject({ error: "Сначала сбросьте лабораторию: exploit probe разрешён только в исходном состоянии." });
 
     const fix = await request.post(base + "/" + run.runId + "/fix", {
       data: { code: 'db.query("SELECT * FROM users WHERE name = ?", [username]);' }
