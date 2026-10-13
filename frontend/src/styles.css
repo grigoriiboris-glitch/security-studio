@@ -141,3 +141,9 @@ button, input, textarea { font: inherit; }
   .chain-detail ol { flex-direction: column; gap: 5px; }
   .openapi-import { align-items: flex-start; flex-direction: column; }
 }
+
+.operation-recommendations { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 7px; border-top: 1px solid #202b41; }
+.operation-recommendations > span { color: #8795ae; font-size: 10px; }
+.recommendation-link { border: 1px solid #35466b; border-radius: 5px; padding: 4px 6px; background: #17223a; color: #b9c8ff; font-size: 10px; cursor: pointer; text-align: left; }
+.recommendation-link:hover { border-color: #7188e8; color: #eef1ff; }
+.no-recommendations { grid-column: 1 / -1; color: #8996ad; font-size: 10px; }
