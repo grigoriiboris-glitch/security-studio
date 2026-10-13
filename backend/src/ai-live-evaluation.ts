@@ -36,11 +36,11 @@ export function registerAILiveEvaluationRoutes(app: FastifyInstance): void {
     if (process.env.AI_SECURITY_LIVE_TESTS_ENABLED !== "true") {
       return reply.code(403).send({ error: "Live model evaluation is disabled. Set AI_SECURITY_LIVE_TESTS_ENABLED=true to opt in." });
     }
+    const parsed = requestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Choose one of the allowlisted synthetic evaluation cases." });
     if (!config.openCodeApiKey) {
       return reply.code(503).send({ error: "Configure OPENCODE_GO_API_KEY before running live model evaluation." });
     }
-    const parsed = requestSchema.safeParse(request.body);
-    if (!parsed.success) return reply.code(400).send({ error: "Choose one of the allowlisted synthetic evaluation cases." });
 
     const testCase = cases[parsed.data.caseId];
     try {
