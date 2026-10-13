@@ -101,7 +101,7 @@ function toggleOutcome(key: string) { completed.value[key] = !completed.value[ke
           <ul class="track-outcomes"><li>Threat modeling и trust boundaries</li><li>SAST, DAST, SCA и безопасность CI/CD</li><li>Severity, доказательства и отчёт об уязвимости</li><li>Разбор архитектурных компромиссов на интервью</li></ul>
         </template>
         <template v-else>
-          <div class="track-roadmap-note"><strong>Учебный план AI Security</strong><p>Эти пункты пока являются планом обучения, а не готовыми исполняемыми лабораториями. Отмечайте освоенные темы; отдельные AI-лаборатории будут добавляться с безопасными тестовыми данными и проверкой исправлений.</p></div>
+          <div class="track-roadmap-note"><strong>Учебный план AI Security</strong><p>Первые три практические AI-лаборатории доступны ниже на этой странице. Остальные темы пока являются учебным планом, а не готовыми лабораториями. Отмечайте освоенные цели; новые сценарии должны использовать синтетические данные и независимую проверку исправлений.</p></div>
           <div class="track-outcome-list">
             <label v-for="(outcome, index) in (aiOutcomes[category.id] ?? [])" :key="outcome" class="track-outcome">
               <input type="checkbox" :checked="Boolean(completed[roadmapKey(category.id, index)])" @change="toggleOutcome(roadmapKey(category.id, index))" />
