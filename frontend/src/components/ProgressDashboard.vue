@@ -59,7 +59,7 @@ function exportJson() {
   ElMessage.success("Экспорт прогресса подготовлен.");
 }
 function exportCsv() {
-  const escape = (value: unknown) => '"' + String(value ?? "").replace(/"/g, '""') + '"';
+  const escape = (value: unknown) => { let raw = String(value ?? ""); if (/^[=+\-@\t\r]/.test(raw)) raw = "'" + raw; return '"' + raw.replace(/"/g, '""') + '"' };
   const lines = [
     ["lessonId", "title", "level", "status", "passed", "message", "updatedAt"].map(escape).join(","),
     ...rows.value.map((row) => [
