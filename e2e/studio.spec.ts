@@ -371,6 +371,51 @@ test("OpenAPI importer rejects documents without a supported version and paths",
 
 
 test("all nine AI Security category labs complete attack → fix → independent retest", async ({ page }) => {
+  // The shared beforeEach intentionally stubs unrelated APIs. Override its catch-all
+  // for this workflow with a stateful server-contract fixture so this test exercises
+  // the real UI lifecycle instead of receiving the generic { labs: [] } response.
+  const states = new Map<string, { runId: string; labId: string; phase: string; controls: Record<string, boolean>; evidence: Array<{ step: string; message: string; passed: boolean }>; createdAt: string }>();
+  const controls: Record<string, string> = {
+    foundations: "trustSeparated", "prompt-injection": "promptIsolated", "rag-isolation": "tenantScoped",
+    "agent-tools": "toolAuthorized", privacy: "sensitiveOutputFiltered", "model-security": "provenanceVerified",
+    "red-team": "evalRegressionPresent", infrastructure: "endpointProtected", interview: "reportEvidenceComplete"
+  };
+  await page.route("**/api/ai-security/labs/**", async (route) => {
+    const request = route.request();
+    const parts = new URL(request.url()).pathname.split("/").filter(Boolean);
+    const labId = parts[3] ?? "";
+    const action = parts[5] ?? "";
+    if (request.method() === "POST" && parts.length === 4 && parts[4] === "reset") {
+      const run = { runId: "e2e-" + labId, labId, phase: "ready", controls: Object.fromEntries(Object.values(controls).map((key) => [key, false])), evidence: [], createdAt: "2026-10-13T00:00:00.000Z" };
+      states.set(labId, run);
+      await route.fulfill({ json: { run, mode: "server-fixtures", liveModelTesting: false } });
+      return;
+    }
+    const run = states.get(labId);
+    if (!run) {
+      await route.fulfill({ status: 404, json: { error: "AI Security lab session not found." } });
+      return;
+    }
+    if (request.method() === "GET") {
+      await route.fulfill({ json: { run } });
+      return;
+    }
+    if (action === "attack" && run.phase === "ready") {
+      run.phase = "exploited";
+      run.evidence.push({ step: "Attack probe", message: "Synthetic attack reproduced the unsafe condition.", passed: false });
+    } else if (action === "fix" && run.phase === "exploited") {
+      run.controls[controls[labId]] = true;
+      run.phase = "fixed";
+      run.evidence.push({ step: "Remediation", message: "Teaching control enabled on the server-side fixture.", passed: true });
+    } else if (action === "retest" && run.phase === "fixed") {
+      run.phase = "passed";
+      run.evidence.push({ step: "Independent retest", message: "Server-side fixture retest passed.", passed: true });
+    } else {
+      await route.fulfill({ status: 409, json: { error: "Invalid lab phase transition." } });
+      return;
+    }
+    await route.fulfill({ json: { run, passed: run.phase === "passed", liveModelTesting: false } });
+  });
   await page.goto("/");
   const labs = page.getByRole("region", { name: "Практические AI Security лаборатории" });
   await expect(labs.locator(".ai-lab-tabs button")).toHaveCount(9);
