@@ -80,3 +80,30 @@ export async function retestSyntheticRun(lessonId: LessonId, runId: string): Pro
 export async function resetSyntheticRun(lessonId: LessonId, runId: string): Promise<SyntheticRun> {
   return (await http.post<{ run: SyntheticRun }>("/labs/scenarios/" + encodeURIComponent(lessonId) + "/" + encodeURIComponent(runId) + "/reset")).data.run;
 }
+
+
+export type AISecurityLabId = "foundations" | "prompt-injection" | "rag-isolation" | "agent-tools" | "privacy" | "model-security" | "red-team" | "infrastructure" | "interview";
+export type AISecurityPhase = "ready" | "exploited" | "fixed" | "passed";
+export type AISecurityRun = {
+  runId: string;
+  labId: AISecurityLabId;
+  phase: AISecurityPhase;
+  controls: Record<string, boolean>;
+  evidence: Array<{ step: string; message: string; passed: boolean }>;
+  createdAt: string;
+};
+export async function resetAISecurityLab(labId: AISecurityLabId): Promise<AISecurityRun> {
+  return (await http.post<{ run: AISecurityRun }>("/ai-security/labs/" + encodeURIComponent(labId) + "/reset")).data.run;
+}
+export async function fetchAISecurityLab(labId: AISecurityLabId, runId: string): Promise<AISecurityRun> {
+  return (await http.get<{ run: AISecurityRun }>("/ai-security/labs/" + encodeURIComponent(labId) + "/" + encodeURIComponent(runId))).data.run;
+}
+export async function attackAISecurityLab(labId: AISecurityLabId, runId: string): Promise<AISecurityRun> {
+  return (await http.post<{ run: AISecurityRun }>("/ai-security/labs/" + encodeURIComponent(labId) + "/" + encodeURIComponent(runId) + "/attack")).data.run;
+}
+export async function fixAISecurityLab(labId: AISecurityLabId, runId: string): Promise<AISecurityRun> {
+  return (await http.post<{ run: AISecurityRun }>("/ai-security/labs/" + encodeURIComponent(labId) + "/" + encodeURIComponent(runId) + "/fix")).data.run;
+}
+export async function retestAISecurityLab(labId: AISecurityLabId, runId: string): Promise<AISecurityRun> {
+  return (await http.post<{ run: AISecurityRun }>("/ai-security/labs/" + encodeURIComponent(labId) + "/" + encodeURIComponent(runId) + "/retest")).data.run;
+}
