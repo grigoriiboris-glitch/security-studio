@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { attackAISecurityLab, fetchAISecurityLab, fixAISecurityLab, resetAISecurityLab, retestAISecurityLab, type AISecurityRun } from "../services/api.js";
 
 type LabId = "foundations" | "prompt-injection" | "rag-isolation" | "agent-tools" | "privacy" | "model-security" | "red-team" | "infrastructure" | "interview";
 type Phase = "ready" | "exploited" | "fixed" | "passed";
-type ControlKey = "trustSeparated" | "tenantScoped" | "toolAuthorized" | "sensitiveOutputFiltered" | "provenanceVerified" | "evalRegressionPresent" | "endpointProtected" | "threatModelComplete" | "reportEvidenceComplete";
+type ControlKey = "trustSeparated" | "promptIsolated" | "tenantScoped" | "toolAuthorized" | "sensitiveOutputFiltered" | "provenanceVerified" | "evalRegressionPresent" | "endpointProtected" | "threatModelComplete" | "reportEvidenceComplete";
 type Fixture = Record<ControlKey, boolean>;
 type Evidence = { title: string; message: string; passed: boolean };
 type Lab = {
@@ -14,7 +15,7 @@ type Lab = {
 type LabState = { phase: Phase; fixture: Fixture; history: Evidence[] };
 
 const initialFixture = (): Fixture => ({
-  trustSeparated: false, tenantScoped: false, toolAuthorized: false,
+  trustSeparated: false, promptIsolated: false, tenantScoped: false, toolAuthorized: false,
   sensitiveOutputFiltered: false, provenanceVerified: false,
   evalRegressionPresent: false, endpointProtected: false,
   threatModelComplete: false, reportEvidenceComplete: false
@@ -39,7 +40,7 @@ const labs: Lab[] = [
     vulnerableEvidence: "Контролируемый fixture передал инструкцию документа в привилегированный контекст; синтетический маркер доступен ответу.",
     fix: "Считать retrieved content недоверенными данными, разделять контекст и инструкции, проверять действия и ответ независимой политикой приложения.",
     fixedEvidence: "Инструкция документа осталась данными; политика вывода блокирует синтетический маркер и записывает событие.",
-    control: "trustSeparated", controlDescription: "недоверенный контент остаётся данными и не меняет привилегированные инструкции",
+    control: "promptIsolated", controlDescription: "недоверенный контент остаётся данными и не меняет привилегированные инструкции",
     verifier: "Проверка разделения инструкций и блокировки синтетического маркера"
   },
   {
@@ -120,57 +121,93 @@ const labs: Lab[] = [
     verifier: "Review должен содержать threat model, evidence и остаточный риск"
   }
 ];
+type ServerLabState = LabState & { runId: string | null };
+const blankState = (): ServerLabState => ({ phase: "ready", fixture: initialFixture(), history: [], runId: null });
 const activeId = ref<LabId>("foundations");
-const states = ref<Record<LabId, LabState>>(Object.fromEntries(labs.map(lab => [lab.id, { phase: "ready", fixture: initialFixture(), history: [] }])) as unknown as Record<LabId, LabState>);
+const states = ref<Record<LabId, ServerLabState>>(Object.fromEntries(labs.map(lab => [lab.id, blankState()])) as Record<LabId, ServerLabState>);
 const activeLab = computed(() => labs.find(lab => lab.id === activeId.value) ?? labs[0]);
 const state = computed(() => states.value[activeId.value]);
 const completed = computed(() => labs.filter(lab => states.value[lab.id].phase === "passed").length);
 const phases: Record<Phase, string> = { ready: "Готова", exploited: "Атака подтверждена", fixed: "Исправление применено", passed: "Retest пройден" };
 const phaseType = computed(() => state.value.phase === "passed" ? "success" : state.value.phase === "exploited" ? "danger" : "info");
-function addEvidence(title: string, message: string, passed: boolean) {
-  state.value.history.push({ title, message, passed });
+const errorMessage = ref("");
+function applyServerRun(labId: LabId, run: AISecurityRun) {
+  states.value[labId] = {
+    phase: run.phase,
+    runId: run.runId,
+    fixture: { ...initialFixture(), ...run.controls },
+    history: run.evidence.slice(-20).map(entry => ({ title: entry.step, message: entry.message, passed: entry.passed }))
+  };
 }
-function reset() {
-  states.value[activeId.value] = { phase: "ready", fixture: initialFixture(), history: [] };
+async function ensureRun(labId: LabId): Promise<string> {
+  let runId = states.value[labId].runId;
+  if (runId) {
+    try {
+      const run = await fetchAISecurityLab(labId, runId);
+      applyServerRun(labId, run);
+      return run.runId;
+    } catch {
+      runId = null;
+    }
+  }
+  const run = await resetAISecurityLab(labId);
+  applyServerRun(labId, run);
+  return run.runId;
 }
-function runAttack() {
+async function reset() {
+  errorMessage.value = "";
+  try {
+    applyServerRun(activeId.value, await resetAISecurityLab(activeId.value));
+  } catch {
+    errorMessage.value = "Не удалось сбросить лабораторию на сервере. Проверьте соединение и повторите.";
+  }
+}
+async function runAttack() {
   if (state.value.phase !== "ready") return;
-  const alreadyHardened = state.value.fixture[activeLab.value.control];
-  state.value.phase = "exploited";
-  addEvidence("Attack probe", alreadyHardened ? activeLab.value.fixedEvidence : activeLab.value.vulnerableEvidence, alreadyHardened);
+  errorMessage.value = "";
+  try {
+    const runId = await ensureRun(activeId.value);
+    applyServerRun(activeId.value, await attackAISecurityLab(activeId.value, runId));
+  } catch {
+    errorMessage.value = "Атака не выполнена: сервер лаборатории недоступен или вернул ошибку.";
+  }
 }
-function applyFix() {
-  if (state.value.phase !== "exploited") return;
-  state.value.fixture[activeLab.value.control] = true;
-  state.value.phase = "fixed";
-  addEvidence("Remediation", activeLab.value.fix, true);
+async function applyFix() {
+  if (state.value.phase !== "exploited" || !state.value.runId) return;
+  errorMessage.value = "";
+  try {
+    applyServerRun(activeId.value, await fixAISecurityLab(activeId.value, state.value.runId));
+  } catch {
+    errorMessage.value = "Учебное исправление не применено. Повторите попытку.";
+  }
 }
-function verifyFixture(lab: Lab, fixture: Fixture): { passed: boolean; evidence: string } {
-  // Each lab verifies its own concrete fixture control rather than trusting the UI phase.
-  const passed = fixture[lab.control] === true;
-  return { passed, evidence: lab.verifier + (passed ? " — PASS" : " — FAIL: контроль не включён") };
-}
-function retest() {
-  if (state.value.phase !== "fixed") return;
-  const result = verifyFixture(activeLab.value, state.value.fixture);
-  state.value.phase = result.passed ? "passed" : "exploited";
-  addEvidence("Independent retest", result.evidence, result.passed);
+async function retest() {
+  if (state.value.phase !== "fixed" || !state.value.runId) return;
+  errorMessage.value = "";
+  try {
+    applyServerRun(activeId.value, await retestAISecurityLab(activeId.value, state.value.runId));
+  } catch {
+    errorMessage.value = "Серверная проверка не завершилась. Повторите retest.";
+  }
 }
 watch(states, value => {
   try { localStorage.setItem("security-studio-ai-lab-progress", JSON.stringify(value)); } catch { /* Progress storage is optional. */ }
 }, { deep: true });
-try {
-  const saved = localStorage.getItem("security-studio-ai-lab-progress");
-  if (saved) {
-    const parsed = JSON.parse(saved) as Record<string, LabState>;
-    for (const lab of labs) {
-      const item = parsed[lab.id];
-      if (item && ["ready", "exploited", "fixed", "passed"].includes(item.phase) && item.fixture && Array.isArray(item.history)) {
-        states.value[lab.id] = { phase: item.phase as Phase, fixture: { ...initialFixture(), ...item.fixture }, history: item.history.slice(-20) };
+onMounted(async () => {
+  try {
+    const saved = localStorage.getItem("security-studio-ai-lab-progress");
+    if (saved) {
+      const parsed = JSON.parse(saved) as Record<string, ServerLabState>;
+      for (const lab of labs) {
+        const item = parsed[lab.id];
+        if (item?.runId) {
+          try { applyServerRun(lab.id, await fetchAISecurityLab(lab.id, item.runId)); }
+          catch { states.value[lab.id] = blankState(); }
+        }
       }
     }
-  }
-} catch { /* Invalid or unavailable local storage must not block the labs. */ }
+  } catch { /* Invalid local storage must not block the labs. */ }
+});
 </script>
 
 <template>
@@ -182,7 +219,7 @@ try {
       </div>
       <el-tag :type="completed === labs.length ? 'success' : 'info'">{{ completed }}/9 пройдены</el-tag>
     </div>
-    <p class="body-copy">Каждая лаборатория проходит цикл атака → исправление → независимый retest. Сценарии локальные, используют только синтетические данные и не вызывают реальные LLM, инструменты, API или внешние системы.</p>
+    <p class="body-copy">Каждая лаборатория проходит цикл атака → исправление → независимый retest. Серверные учебные fixtures используют синтетические данные. Они не вызывают реальные LLM, инструменты или внешние системы.</p>
     <div class="ai-lab-tabs" role="tablist" aria-label="AI Security категории">
       <button v-for="lab in labs" :key="lab.id" type="button" role="tab" :aria-selected="activeId === lab.id" :class="{ active: activeId === lab.id }" @click="activeId = lab.id">
         <span class="ai-lab-tab-copy"><small>{{ lab.category }}</small><strong>{{ lab.title }}</strong></span>
@@ -203,6 +240,7 @@ try {
         <strong>Мера защиты</strong>
         <p>{{ activeLab.fix }}</p>
       </div>
+      <p v-if="errorMessage" class="ai-lab-error" role="alert">{{ errorMessage }}</p>
       <div class="editor-actions ai-lab-actions">
         <el-button type="primary" :disabled="state.phase !== 'ready'" @click="runAttack">1. Запустить атаку</el-button>
         <el-button :disabled="state.phase !== 'exploited'" @click="applyFix">2. Применить учебный fix</el-button>
@@ -218,7 +256,7 @@ try {
           </el-timeline-item>
         </el-timeline>
       </div>
-      <p class="ai-lab-disclaimer">Ограничение: это детерминированные учебные fixtures, а не реальные тесты поведения модели. Retest проверяет конкретный контроль fixture и не доказывает безопасность production-системы. Для live model testing потребуется отдельный provider, изолированная тестовая среда и собственный набор оценочных критериев.</p>
+      <p class="ai-lab-disclaimer">Ограничение: сервер проверяет детерминированные учебные fixtures, а не реальное поведение модели. Retest не доказывает безопасность production-системы. Для live model testing потребуется отдельный provider, изолированная тестовая среда и собственный набор оценочных критериев.</p>
     </div>
   </section>
 </template>
