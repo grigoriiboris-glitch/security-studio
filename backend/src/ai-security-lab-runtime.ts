@@ -38,21 +38,21 @@ function persistSession(run: Session): void {
 }
 
 export function registerAISecurityLabRoutes(app: FastifyInstance): void {
-  app.get("/api/ai-security/labs", async () => ({ labs: aiSecurityLabCatalog, mode: "server-fixtures", liveModelTesting: false }));
-  app.post("/api/ai-security/labs/:labId/reset", async (request, reply) => {
+  app.get("/api/ai-security/labs", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async () => ({ labs: aiSecurityLabCatalog, mode: "server-fixtures", liveModelTesting: false }));
+  app.post("/api/ai-security/labs/:labId/reset", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { labId } = request.params as { labId?: string };
     if (!labId || !catalogById.has(labId)) return reply.code(400).send({ error: "Unknown AI Security lab." });
     const run: Session = { runId: randomUUID(), labId: labId as LabId, phase: "ready", controls: controlsFor(), evidence: [], createdAt: new Date().toISOString() };
     persistSession(run);
     return { run, mode: "server-fixtures", liveModelTesting: false };
   });
-  app.get("/api/ai-security/labs/:labId/:runId", async (request, reply) => {
+  app.get("/api/ai-security/labs/:labId/:runId", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
     const run = findSession(labId ?? "", runId ?? "");
     if (!run) return reply.code(404).send({ error: "AI Security lab session not found." });
     return { run };
   });
-  app.post("/api/ai-security/labs/:labId/:runId/attack", async (request, reply) => {
+  app.post("/api/ai-security/labs/:labId/:runId/attack", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
     const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
@@ -63,7 +63,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     persistSession(run);
     return { run, vulnerable: true, passed: true, message: "The synthetic attack fixture reproduced the configured unsafe condition.", liveModelTesting: false };
   });
-  app.post("/api/ai-security/labs/:labId/:runId/fix", async (request, reply) => {
+  app.post("/api/ai-security/labs/:labId/:runId/fix", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
     const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
@@ -75,7 +75,7 @@ export function registerAISecurityLabRoutes(app: FastifyInstance): void {
     persistSession(run);
     return { run, passed: true, message: "Teaching control enabled on the server-side fixture.", liveModelTesting: false };
   });
-  app.post("/api/ai-security/labs/:labId/:runId/retest", async (request, reply) => {
+  app.post("/api/ai-security/labs/:labId/:runId/retest", { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } }, async (request, reply) => {
     const { labId, runId } = request.params as { labId?: string; runId?: string };
     const run = findSession(labId ?? "", runId ?? "");
     const lab = labId ? catalogById.get(labId) : undefined;
