@@ -4,6 +4,7 @@ import { ElMessage } from "element-plus";
 import AssistantChat from "./components/AssistantChat.vue";
 import BrowserProbe from "./components/BrowserProbe.vue";
 import ProgressDashboard from "./components/ProgressDashboard.vue";
+import AttackChains from "./components/AttackChains.vue";
 import CodeEditor from "./components/CodeEditor.vue";
 import { lessons } from "./data/lessons";
 import { fetchHealth, fetchProgress, fetchExerciseCode, saveProgress, saveExerciseCode, runSqlInjectionDemo, createSyntheticRun, exploitSyntheticRun, fixSyntheticRun, retestSyntheticRun, resetSyntheticRun, type DemoResult, type SyntheticRun, type SyntheticEvidence } from "./services/api";
@@ -261,6 +262,7 @@ async function resetLab() {
         </div>
 
         <ProgressDashboard :lessons="lessons" :selected-lesson-id="lesson.id" @select-lesson="selectLesson" />
+        <AttackChains :lessons="lessons" @select-lesson="selectLesson" />
 
         <div class="lab-toolbar">
           <div class="lab-picker">
