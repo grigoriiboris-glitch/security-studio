@@ -31,11 +31,11 @@ describe("controlled HTTP vulnerability targets", () => {
     await app.ready();
     apps.push(app);
     const base = "/api/labs/http-targets/xss-stored/stored-run";
-    await app.inject({ method: "POST", url: base + "/prepare" });
+    await app.inject({ method: "POST", url: base + "/prepare", headers: internalLabControlHeaders() });
     const saved = await app.inject({ method: "POST", url: base + "/fixture", payload: { comment: "<img src=x onerror=alert(1)>" } });
     expect(saved.statusCode).toBe(200);
     expect((await app.inject({ method: "GET", url: base + "/fixture" })).body).toContain("<img src=x onerror=alert(1)>");
-    await app.inject({ method: "POST", url: base + "/fix" });
+    await app.inject({ method: "POST", url: base + "/fix", headers: internalLabControlHeaders() });
     expect((await app.inject({ method: "GET", url: base + "/fixture" })).body).toContain("&lt;img src=x onerror=alert(1)&gt;");
   });
 
@@ -100,7 +100,7 @@ describe("controlled HTTP vulnerability targets", () => {
     const app = buildApp();
     await app.ready();
     apps.push(app);
-    expect((await app.inject({ method: "POST", url: "/api/labs/http-targets/unknown/run/prepare" })).statusCode).toBe(400);
+    expect((await app.inject({ method: "POST", url: "/api/labs/http-targets/unknown/run/prepare" })).statusCode).toBe(404);
     expect((await app.inject({ method: "GET", url: "/api/labs/http-targets/idor/missing/fixture?id=bob-note" })).statusCode).toBe(404);
   });
 });
