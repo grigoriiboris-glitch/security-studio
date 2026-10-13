@@ -72,6 +72,8 @@ describe("all 30 runtime labs", () => {
     const exploit = await app.inject({ method: "POST", url: base + "/" + runId + "/exploit" });
     expect(exploit.statusCode).toBe(200);
     expect(exploit.json()).toMatchObject({ vulnerable: true, passed: true, phase: "exploited" });
+    const repeated = await app.inject({ method: "POST", url: base + "/" + runId + "/exploit" });
+    expect(repeated.statusCode).toBe(409);
 
     const blockedRetest = await app.inject({ method: "POST", url: base + "/" + runId + "/retest" });
     expect(blockedRetest.json()).toMatchObject({ vulnerable: true, passed: false });
