@@ -109,6 +109,8 @@ describe("controlled HTTP vulnerability targets", () => {
     const realRunId = created.json().run.runId as string;
     const directFix = await app.inject({ method: "POST", url: "/api/labs/http-targets/idor/" + realRunId + "/fix" });
     expect(directFix.statusCode).toBe(404);
+    const directReset = await app.inject({ method: "POST", url: "/api/labs/http-targets/idor/" + realRunId + "/reset" });
+    expect(directReset.statusCode).toBe(404);
     const stillVulnerable = await app.inject({
       method: "GET",
       url: "/api/labs/http-targets/idor/" + realRunId + "/fixture?id=bob-note"
