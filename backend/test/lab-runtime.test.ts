@@ -95,6 +95,14 @@ describe("all 30 runtime labs", () => {
     expect(reset.json().run).toMatchObject({ phase: "ready", fixed: false });
   });
 
+
+  it("bounds retained lesson sessions so abandoned runs cannot grow memory indefinitely", async () => {
+    const { createLabRun, getLabRun } = await import("../src/lab-runtime.js");
+    const first = createLabRun("sql-injection");
+    for (let index = 0; index < 500; index++) createLabRun("xss-reflected");
+    expect(getLabRun("sql-injection", first.runId)).toBeNull();
+  });
+
   it("rejects missing sessions and unknown lesson IDs", async () => {
     const app = await makeApp();
     expect((await app.inject({ method: "POST", url: "/api/labs/scenarios/not-a-lesson/reset" })).statusCode).toBe(400);
