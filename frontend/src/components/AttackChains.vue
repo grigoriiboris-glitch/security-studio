@@ -80,7 +80,6 @@ async function importOpenApi(event: Event) {
           method: method.toUpperCase(), path,
           summary: typeof detail.summary === "string" ? detail.summary : "",
           operationId: typeof detail.operationId === "string" ? detail.operationId : "",
-          recommendations: []
         });
       }
     }
