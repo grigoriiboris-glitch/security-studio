@@ -218,6 +218,11 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     const params = request.params as { lessonId?: string; runId?: string };
     const lesson = lessonIdSchema.safeParse(params.lessonId);
     if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
+    const existingRun = getLabRun(lesson.data, params.runId);
+    if (!existingRun) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
+    if (existingRun.phase !== "ready") {
+      return reply.code(409).send({ error: "Сначала сбросьте лабораторию: exploit probe разрешён только в исходном состоянии." });
+    }
     const result = probeLabRun(lesson.data, params.runId);
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
     if (!httpTargetLessons.has(lesson.data)) return result;
