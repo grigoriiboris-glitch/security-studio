@@ -96,6 +96,27 @@ describe("controlled HTTP vulnerability targets", () => {
     expect(retest.json()).toMatchObject({ vulnerable: false, passed: true, phase: "passed" });
   });
 
+  it("does not allow public callers to invoke internal prepare/fix/reset controls", async () => {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const runId = "control-guard-test";
+    const target = "/api/labs/http-targets/idor/" + runId;
+    expect((await app.inject({ method: "POST", url: target + "/prepare" })).statusCode).toBe(404);
+
+    const created = await app.inject({ method: "POST", url: "/api/labs/scenarios/idor/reset" });
+    expect(created.statusCode).toBe(200);
+    const realRunId = created.json().run.runId as string;
+    const directFix = await app.inject({ method: "POST", url: "/api/labs/http-targets/idor/" + realRunId + "/fix" });
+    expect(directFix.statusCode).toBe(404);
+    const stillVulnerable = await app.inject({
+      method: "GET",
+      url: "/api/labs/http-targets/idor/" + realRunId + "/fixture?id=bob-note"
+    });
+    expect(stillVulnerable.statusCode).toBe(200);
+    expect(stillVulnerable.body).toContain("BOB-PRIVATE-FIXTURE");
+  });
+
   it("rejects unknown lesson and unprepared sessions", async () => {
     const app = buildApp();
     await app.ready();
