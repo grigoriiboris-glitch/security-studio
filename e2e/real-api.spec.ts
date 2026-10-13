@@ -68,4 +68,11 @@ test.describe("real backend integration (no API route mocks)", () => {
     });
     expect(invalidFix.status()).toBe(400);
   });
+  test("browser loads the real lesson UI without stubbing API responses", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "SQL Injection", exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Выбор урока" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Проверить исправление" })).toBeVisible();
+  });
+
 });
