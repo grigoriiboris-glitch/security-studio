@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp } from "../src/app.js";
+import { getAISecurityLabRun } from "../src/database.js";
 import type { LabManagerContract, LabId } from "../src/lab-manager.js";
 
 function fakeLabs(): LabManagerContract {
@@ -60,6 +61,7 @@ describe("server-side AI Security fixture API", () => {
     expect(retest.statusCode).toBe(200);
     expect(retest.json()).toMatchObject({ passed: true, vulnerable: false, run: { phase: "passed" } });
     expect(retest.json().run.evidence.map((item: { step: string }) => item.step)).toEqual(["Attack probe", "Remediation", "Independent retest"]);
+    expect(getAISecurityLabRun("prompt-injection", runId)).toMatchObject({ phase: "passed", evidence: [{ step: "Attack probe" }, { step: "Remediation" }, { step: "Independent retest" }] });
   });
 
   it.each([
