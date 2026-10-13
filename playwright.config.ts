@@ -12,7 +12,7 @@ export default defineConfig({
     ...devices["Desktop Chrome"]
   },
   webServer: {
-    command: "npm run dev --workspace @security-studio/web -- --host 127.0.0.1",
+    command: "npm run dev",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000
