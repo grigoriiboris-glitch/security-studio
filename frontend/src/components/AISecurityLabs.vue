@@ -3,7 +3,7 @@ import { computed, ref } from "vue";
 
 type LabId = "prompt-injection" | "rag-isolation" | "agent-tools";
 type Phase = "ready" | "exploited" | "fixed" | "passed";
-type Lab = { id: LabId; title: string; risk: string; objective: string; attack: string; vulnerableEvidence: string; fix: string; fixedEvidence: string; lesson: string };
+type Lab = { id: LabId; title: string; risk: string; objective: string; attack: string; vulnerableEvidence: string; fix: string; fixedEvidence: string };
 const labs: Lab[] = [
   {
     id: "prompt-injection",
