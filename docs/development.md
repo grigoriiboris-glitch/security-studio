@@ -16,12 +16,12 @@ API health: http://127.0.0.1:3001/api/healthz
 
     docker build -f labs/Dockerfile -t security-labs:dev labs
 
-Проверки:
+Полная локальная проверка одним вызовом (lint, типизация, API/unit-тесты, production build и браузерные E2E):
 
-    npm run lint
-    npm run typecheck
-    npm test
-    npm run build
+    npx playwright install chromium
+    npm run verify
+
+Если браузер Chromium уже установлен, повторно запускать первую команду не нужно. Отдельные проверки доступны независимо: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `npm run test:e2e`.
 
 Без Docker открывается UI и работают code-check/API health; запуск лаборатории вернёт понятную ошибку. Без API key AI отвечает конфигурационной ошибкой. Не запускайте Juice Shop и NodeGoat параллельно: backend держит не больше одного учебного контейнера.
 
