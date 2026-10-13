@@ -82,7 +82,7 @@ function toggleOutcome(key: string) { completed.value[key] = !completed.value[ke
           <strong>{{ item.title }}</strong>
           <small>{{ item.description }}</small>
           <el-tag v-if="activeTrack === 'appsec' && item.lessonIds" size="small" effect="plain">{{ item.lessonIds.length }} уроков</el-tag>
-          <el-tag v-else size="small" type="info" effect="plain">План</el-tag>
+          <el-tag v-else size="small" type="success" effect="plain">Лаборатория</el-tag>
         </button>
       </nav>
       <div class="track-content">
@@ -101,7 +101,7 @@ function toggleOutcome(key: string) { completed.value[key] = !completed.value[ke
           <ul class="track-outcomes"><li>Threat modeling и trust boundaries</li><li>SAST, DAST, SCA и безопасность CI/CD</li><li>Severity, доказательства и отчёт об уязвимости</li><li>Разбор архитектурных компромиссов на интервью</li></ul>
         </template>
         <template v-else>
-          <div class="track-roadmap-note"><strong>Учебный план AI Security</strong><p>Первые три практические AI-лаборатории доступны ниже на этой странице. Остальные темы пока являются учебным планом, а не готовыми лабораториями. Отмечайте освоенные цели; новые сценарии должны использовать синтетические данные и независимую проверку исправлений.</p></div>
+          <div class="track-roadmap-note"><strong>Учебный план AI Security</strong><p>Все девять категорий AI Security теперь имеют интерактивную учебную лабораторию ниже на этой странице. Чек-лист помогает отмечать освоенные результаты, а лаборатории используют синтетические данные и независимую проверку контрольного состояния.</p></div>
           <div class="track-outcome-list">
             <label v-for="(outcome, index) in (aiOutcomes[category.id] ?? [])" :key="outcome" class="track-outcome">
               <input type="checkbox" :checked="Boolean(completed[roadmapKey(category.id, index)])" @change="toggleOutcome(roadmapKey(category.id, index))" />
