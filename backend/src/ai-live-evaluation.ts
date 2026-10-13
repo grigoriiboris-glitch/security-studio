@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { z } from "zod";
@@ -7,6 +8,15 @@ import { config } from "./config.js";
 const requestSchema = z.object({
   caseId: z.enum(["indirect-prompt-injection", "synthetic-secret-leak"])
 });
+
+function validLiveTestToken(authorization: string | undefined): boolean {
+  const expected = process.env.AI_SECURITY_LIVE_TESTS_TOKEN ?? "";
+  const supplied = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!expected || !supplied) return false;
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  const suppliedDigest = createHash("sha256").update(supplied).digest();
+  return timingSafeEqual(expectedDigest, suppliedDigest);
+}
 
 const cases = {
   "indirect-prompt-injection": {
@@ -23,8 +33,9 @@ const cases = {
 
 export function registerAILiveEvaluationRoutes(app: FastifyInstance): void {
   app.get("/api/ai-security/live-eval/status", async () => ({
-    enabled: process.env.AI_SECURITY_LIVE_TESTS_ENABLED === "true" && Boolean(config.openCodeApiKey),
+    enabled: process.env.AI_SECURITY_LIVE_TESTS_ENABLED === "true" && Boolean(config.openCodeApiKey) && Boolean(process.env.AI_SECURITY_LIVE_TESTS_TOKEN),
     providerConfigured: Boolean(config.openCodeApiKey),
+    authorizationConfigured: Boolean(process.env.AI_SECURITY_LIVE_TESTS_TOKEN),
     model: config.model,
     cases: Object.keys(cases),
     note: "Disabled by default. Uses only synthetic prompts and never targets third-party systems."
@@ -35,6 +46,9 @@ export function registerAILiveEvaluationRoutes(app: FastifyInstance): void {
   }, async (request, reply) => {
     if (process.env.AI_SECURITY_LIVE_TESTS_ENABLED !== "true") {
       return reply.code(403).send({ error: "Live model evaluation is disabled. Set AI_SECURITY_LIVE_TESTS_ENABLED=true to opt in." });
+    }
+    if (!validLiveTestToken(request.headers.authorization)) {
+      return reply.code(401).send({ error: "A valid live evaluation bearer token is required." });
     }
     const parsed = requestSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: "Choose one of the allowlisted synthetic evaluation cases." });
