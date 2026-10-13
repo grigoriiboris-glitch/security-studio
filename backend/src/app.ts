@@ -3,6 +3,9 @@ import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
+import { readFile } from "node:fs/promises";
+import { extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import { z } from "zod";
@@ -406,6 +409,57 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     response.headers.forEach((value, key) => reply.header(key, value));
     if (!response.body) return reply.send();
     return reply.send(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream<Uint8Array>));
+  });
+
+  // Serve the built SPA when running the production server without Vite.
+  const frontendDist = resolve(fileURLToPath(new URL("../../frontend/dist/", import.meta.url)));
+  const contentTypes: Record<string, string> = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".ico": "image/x-icon",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".map": "application/json; charset=utf-8"
+  };
+  app.get("/*", async (request, reply) => {
+    const pathname = new URL(request.url, "http://localhost").pathname;
+    if (pathname === "/api" || pathname.startsWith("/api/")) {
+      return reply.code(404).send({ error: "Not found." });
+    }
+    let relativePath: string;
+    try {
+      relativePath = decodeURIComponent(pathname.slice(1)) || "index.html";
+    } catch {
+      return reply.code(400).send({ error: "Invalid path." });
+    }
+    const candidate = resolve(frontendDist, relativePath);
+    if (candidate !== frontendDist && !candidate.startsWith(frontendDist + sep)) {
+      return reply.code(404).send({ error: "Not found." });
+    }
+    let file: Buffer;
+    let filePath = candidate;
+    try {
+      file = await readFile(filePath);
+    } catch {
+      if (extname(relativePath)) return reply.code(404).send({ error: "Not found." });
+      filePath = resolve(frontendDist, "index.html");
+      try {
+        file = await readFile(filePath);
+      } catch {
+        return reply.code(404).send({ error: "Production frontend build not found. Run npm run build first." });
+      }
+    }
+    reply.type(contentTypes[extname(filePath).toLowerCase()] ?? "application/octet-stream");
+    reply.header("Cache-Control", extname(filePath) === ".html" ? "no-cache" : "public, max-age=31536000, immutable");
+    return reply.send(file);
   });
 
   return app;
