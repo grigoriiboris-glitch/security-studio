@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../src/app.js";
+import { internalLabControlHeaders } from "../src/http-lab-targets.js";
 import { httpTargetLessonIds } from "../src/http-lab-targets.js";
 import type { LessonId } from "../src/lessons.js";
 
