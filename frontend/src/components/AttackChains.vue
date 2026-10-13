@@ -5,7 +5,7 @@ import { parse } from "yaml";
 
 type LessonSummary = { id: string; title: string; level: string };
 type Chain = { id: string; title: string; description: string; steps: string[] };
-type ApiOperation = { method: string; path: string; summary: string; operationId: string };
+type ApiOperation = { method: string; path: string; summary: string; operationId: string; recommendations: string[] };
 const props = defineProps<{ lessons: LessonSummary[] }>();
 const emit = defineEmits<{ selectLesson: [id: string] }>();
 
@@ -22,6 +22,36 @@ const apiError = ref("");
 const apiVersion = ref("");
 const busy = ref(false);
 const lessonTitle = (id: string) => props.lessons.find((lesson) => lesson.id === id)?.title ?? id;
+
+const recommendationRules: Array<{ pattern: RegExp; lessons: string[] }> = [
+  { pattern: /auth|login|sign.?in|credential|password|session|token|oauth|sso|account\/me/i, lessons: ["broken-authentication", "session-fixation", "password-reset", "jwt-validation"] },
+  { pattern: /admin|role|permission|privilege|access|authori[sz]/i, lessons: ["broken-access-control", "mass-assignment"] },
+  { pattern: /user|profile|account|order|invoice|document|tenant|project|customer|member|resource|object|report/i, lessons: ["idor", "sensitive-data", "broken-access-control"] },
+  { pattern: /search|query|filter|lookup|find|sql|database/i, lessons: ["sql-injection", "nosql-injection"] },
+  { pattern: /ldap|directory/i, lessons: ["ldap-injection"] },
+  { pattern: /upload|attachment|file|media|image/i, lessons: ["file-upload", "path-traversal"] },
+  { pattern: /url|fetch|webhook|proxy|callback|import|preview/i, lessons: ["ssrf"] },
+  { pattern: /redirect|return.?to|continue|next/i, lessons: ["open-redirect"] },
+  { pattern: /comment|message|content|html|render|markup|feedback/i, lessons: ["xss-reflected", "xss-stored", "xss-dom"] },
+  { pattern: /xml|soap/i, lessons: ["xxe"] },
+  { pattern: /template|view|render/i, lessons: ["ssti"] },
+  { pattern: /export|download|attachment|document|report/i, lessons: ["sensitive-data", "path-traversal"] },
+  { pattern: /payment|checkout|transfer|coupon|discount|balance|purchase|order/i, lessons: ["business-logic", "rate-limiting"] }
+];
+function recommendLessons(operation: Pick<ApiOperation, "method" | "path" | "summary" | "operationId">) {
+  const searchable = [operation.path, operation.summary, operation.operationId].join(" ");
+  const matches = new Set<string>();
+  for (const rule of recommendationRules) {
+    if (rule.pattern.test(searchable)) rule.lessons.forEach((id) => matches.add(id));
+  }
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(operation.method)) {
+    matches.add("csrf");
+    matches.add("broken-access-control");
+  }
+  if (/^\/(api\/)?(health|status|docs?)(\/|$)/i.test(operation.path)) matches.clear();
+  return [...matches].filter((id) => props.lessons.some((lesson) => lesson.id === id)).slice(0, 5);
+}
+
 
 function selectChain(id: string) { selectedChainId.value = id; }
 async function importOpenApi(event: Event) {
@@ -49,13 +79,14 @@ async function importOpenApi(event: Event) {
         operations.push({
           method: method.toUpperCase(), path,
           summary: typeof detail.summary === "string" ? detail.summary : "",
-          operationId: typeof detail.operationId === "string" ? detail.operationId : ""
+          operationId: typeof detail.operationId === "string" ? detail.operationId : "",
+          recommendations: []
         });
       }
     }
     if (!operations.length) throw new Error("В paths не найдено HTTP-операций.");
     apiVersion.value = typeof spec.openapi === "string" ? spec.openapi : "Swagger 2.0";
-    apiOperations.value = operations.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+    apiOperations.value = operations.map((operation) => ({ ...operation, recommendations: recommendLessons(operation) })).sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
     ElMessage.success("Импортировано операций: " + operations.length + ". Запросы к API не выполнялись.");
   } catch (error) {
     apiError.value = error instanceof Error ? error.message : "Не удалось разобрать спецификацию.";
@@ -111,6 +142,11 @@ function exportOperations() {
           <span class="http-method" :class="'method-' + operation.method.toLowerCase()">{{ operation.method }}</span>
           <code>{{ operation.path }}</code>
           <small v-if="operation.summary">{{ operation.summary }}</small>
+          <div v-if="operation.recommendations.length" class="operation-recommendations">
+            <span>Проверить:</span>
+            <button v-for="lessonId in operation.recommendations" :key="lessonId" type="button" class="recommendation-link" @click="emit('selectLesson', lessonId)">{{ lessonTitle(lessonId) }} ↗</button>
+          </div>
+          <small v-else class="no-recommendations">Подходящие уроки автоматически не определены — выберите их вручную.</small>
         </div>
       </div>
       <p class="openapi-safety-note">Импорт не подтверждает наличие уязвимостей и не отправляет трафик. Маршруты можно использовать как основу для планирования проверок.</p>
