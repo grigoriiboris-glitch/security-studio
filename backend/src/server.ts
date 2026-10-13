@@ -1,6 +1,7 @@
 import { buildApp } from "./app.js";
-import { config } from "./config.js";
+import { assertSafeApiBind, config } from "./config.js";
 
+assertSafeApiBind();
 const app = buildApp();
 try {
   await app.listen({ host: config.apiHost, port: config.apiPort });
