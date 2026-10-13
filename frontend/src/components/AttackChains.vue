@@ -66,7 +66,7 @@ async function importOpenApi(event: Event) {
 }
 function exportOperations() {
   const rows = [["method", "path", "summary", "operationId"], ...apiOperations.value.map(({ method, path, summary, operationId }) => [method, path, summary, operationId])];
-  const csv = rows.map((row) => row.map((cell) => '"' + cell.replace(/"/g, '""') + '"').join(",")).join("\r\n");
+  const csv = rows.map((row) => row.map((cell) => { const safe = /^[=+\-@\t\r]/.test(cell) ? "'" + cell : cell; return '"' + safe.replace(/"/g, '""') + '"' }).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }));
   const anchor = document.createElement("a");
   anchor.href = url;
