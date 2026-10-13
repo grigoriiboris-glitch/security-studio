@@ -147,3 +147,39 @@ button, input, textarea { font: inherit; }
 .recommendation-link { border: 1px solid #35466b; border-radius: 5px; padding: 4px 6px; background: #17223a; color: #b9c8ff; font-size: 10px; cursor: pointer; text-align: left; }
 .recommendation-link:hover { border-color: #7188e8; color: #eef1ff; }
 .no-recommendations { grid-column: 1 / -1; color: #8996ad; font-size: 10px; }
+
+
+/* Role-based learning tracks */
+.learning-tracks { margin-bottom: 18px; }
+.track-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.track-switch > button, .track-categories > button { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 100%; text-align: left; color: var(--text); background: #111a2c; border: 1px solid var(--border); border-radius: 10px; padding: 13px; cursor: pointer; }
+.track-switch > button strong { font-size: 14px; }
+.track-switch > button span, .track-categories small { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.track-switch > button.active, .track-categories > button.active { border-color: var(--cyan); background: #142b3a; box-shadow: inset 0 0 0 1px #5ad7d044; }
+.track-layout { display: grid; grid-template-columns: minmax(190px, 0.8fr) minmax(0, 1.8fr); gap: 14px; }
+.track-categories { display: flex; flex-direction: column; gap: 7px; }
+.track-categories > button strong { font-size: 12px; }
+.track-content { min-width: 0; border: 1px solid var(--border); background: #0c1424a6; border-radius: 10px; padding: 16px; }
+.track-content h3 { margin: 0 0 8px; font-size: 16px; }
+.track-lesson-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.track-lesson { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); padding: 9px 0; }
+.track-lesson:last-child { border-bottom: 0; }
+.track-lesson > div { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.track-lesson strong { font-size: 13px; }
+.track-lesson small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.track-roadmap-note { margin: 12px 0; border-left: 2px solid var(--cyan); padding: 8px 12px; background: #111b2b; font-size: 12px; line-height: 1.6; }
+.track-roadmap-note p { margin: 5px 0 0; color: var(--muted); }
+.track-outcomes { padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.track-outcome-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.track-outcome { display: flex; align-items: flex-start; gap: 9px; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.track-outcome input { margin-top: 3px; accent-color: var(--cyan); }
+.track-progress { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+@media (max-width: 800px) {
+  .track-layout { grid-template-columns: 1fr; }
+  .track-categories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .track-switch { grid-template-columns: 1fr; }
+  .track-categories { grid-template-columns: 1fr; }
+  .track-lesson { align-items: flex-start; flex-direction: column; }
+}
