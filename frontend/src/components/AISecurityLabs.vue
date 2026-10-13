@@ -121,7 +121,7 @@ const labs: Lab[] = [
   }
 ];
 const activeId = ref<LabId>("foundations");
-const states = ref<Record<LabId, LabState>>(Object.fromEntries(labs.map(lab => [lab.id, { phase: "ready", fixture: initialFixture(), history: [] }])) as Record<LabId, LabState>);
+const states = ref<Record<LabId, LabState>>(Object.fromEntries(labs.map(lab => [lab.id, { phase: "ready", fixture: initialFixture(), history: [] }])) as unknown as Record<LabId, LabState>);
 const activeLab = computed(() => labs.find(lab => lab.id === activeId.value) ?? labs[0]);
 const state = computed(() => states.value[activeId.value]);
 const completed = computed(() => labs.filter(lab => states.value[lab.id].phase === "passed").length);
