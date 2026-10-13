@@ -14,10 +14,10 @@ The **AI Security Engineer** track now has nine interactive, local training fixt
 
 ## How to run
 
-Open Security Studio, switch to **AI Security Engineer**, and use **Practical AI Security labs**. Select any of the nine categories and run **Attack probe → Apply teaching fix → Independent retest**. Each lab has a reset action, an evidence timeline, a deterministic control check, and local progress persistence. The E2E suite exercises the complete lifecycle for all nine labs.
+Open Security Studio, switch to **AI Security Engineer**, and use **Practical AI Security labs**. Select any of the nine categories and run **Attack probe → Apply teaching fix → Independent retest**. Each lab has a server-issued run ID, reset action, server-side evidence timeline, deterministic control check, and local UI progress persistence. Sessions are held in backend memory and are lost on backend restart; no account-based progress sync is implemented. The E2E suite exercises the complete lifecycle for all nine labs.
 
 ## Safety and honest scope
 
-All nine are deterministic local teaching fixtures using synthetic data. They do not call an external LLM, retrieve real documents, use credentials, send payments, execute arbitrary tools, connect to an inference endpoint, or contact external hosts. No user editor code is executed. The retest checks the fixture's explicit control state independently of the UI phase and attack narrative.
+All nine are deterministic server-side teaching fixtures using synthetic data. They do not call an external LLM, retrieve real documents, use credentials, send payments, execute arbitrary tools, connect to an inference endpoint, or contact external hosts. No user editor code is executed. The retest checks the fixture's explicit server-side control state independently of the UI phase and attack narrative.
 
-These are functional educational simulations, **not live tests of a model or production AI service**. They do not prove a mitigation would stop a real model. Live model testing would require an explicit provider integration, isolated test credentials/data, provider-specific adversarial datasets, trace capture, repeatable evaluation criteria, and safety limits. Do not describe this stage as production AI red teaming.
+These are functional educational simulations, **not live tests of a model or production AI service**. They do not prove a mitigation would stop a real model. Live model testing remains a separate future stage and would require an explicit provider integration, isolated test credentials/data, provider-specific adversarial datasets, trace capture, repeatable evaluation criteria, and safety limits. Do not describe this stage as production AI red teaming.
