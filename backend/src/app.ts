@@ -13,6 +13,7 @@ import { checkLessonFix } from "./security-check.js";
 import { labScenarios } from "./lab-scenarios.js";
 import { createLabRun, fixLabRun, getLabRun, probeLabRun, recordLabProbeResult, recordLabRetestResult, resetLabRun, retestLabRun } from "./lab-runtime.js";
 import { registerHttpLabTargets } from "./http-lab-targets.js";
+import { registerAISecurityLabRoutes } from "./ai-security-lab-runtime.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
 import { createExerciseWorkspace, type ExerciseWorkspace } from "./workspace.js";
 
@@ -151,6 +152,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
   app.register(helmet, { contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: "same-site" } });
   app.register(rateLimit, { max: 60, timeWindow: "1 minute" });
   registerHttpLabTargets(app);
+  registerAISecurityLabRoutes(app);
 
   app.addHook("onRequest", async (request, reply) => {
     if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) return;
