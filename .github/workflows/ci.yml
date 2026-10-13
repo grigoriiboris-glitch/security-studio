@@ -41,7 +41,8 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then cat /tmp/security-studio-production.log; exit 1; fi
-          curl -fsS http://127.0.0.1:3001/ -o /tmp/security-studio-index.html
+          curl -fsS -D /tmp/security-studio-headers http://127.0.0.1:3001/ -o /tmp/security-studio-index.html
+          grep -qi "content-security-policy:" /tmp/security-studio-headers
           grep -q '/assets/.*\.js' /tmp/security-studio-index.html
           asset_path=$(grep -oE '/assets/[^"]+\.js' /tmp/security-studio-index.html | head -n 1)
           test -n "$asset_path"
