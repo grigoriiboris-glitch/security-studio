@@ -15,7 +15,7 @@ import { LabManager, labCatalog, type LabManagerContract, type LabId } from "./l
 import { checkLessonFix } from "./security-check.js";
 import { labScenarios } from "./lab-scenarios.js";
 import { createLabRun, fixLabRun, getLabRun, probeLabRun, recordLabProbeResult, recordLabRetestResult, resetLabRun, retestLabRun } from "./lab-runtime.js";
-import { registerHttpLabTargets } from "./http-lab-targets.js";
+import { internalLabControlHeaders, registerHttpLabTargets } from "./http-lab-targets.js";
 import { registerAISecurityLabRoutes } from "./ai-security-lab-runtime.js";
 import { registerAILiveEvaluationRoutes } from "./ai-live-evaluation.js";
 import { getChatMessages, getProgress, saveChatMessages, saveProgress } from "./database.js";
@@ -210,7 +210,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!parsed.success) return reply.code(400).send({ error: "Неизвестный урок." });
     const run = createLabRun(parsed.data);
     const mode = httpTargetLessons.has(parsed.data) ? "controlled-http" : "synthetic";
-    if (mode === "controlled-http") await app.inject({ method: "POST", url: "/api/labs/http-targets/" + parsed.data + "/" + run.runId + "/prepare" });
+    if (mode === "controlled-http") await app.inject({ method: "POST", url: "/api/labs/http-targets/" + parsed.data + "/" + run.runId + "/prepare", headers: internalLabControlHeaders() });
     return { run, mode, codeExecution: false };
   });
 
@@ -248,7 +248,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId || !body.success) return reply.code(400).send({ error: "Передайте lessonId, runId и code длиной не более 12000 символов." });
     const result = fixLabRun(lesson.data, params.runId, body.data.code);
     if (!result) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
-    if (result.passed && httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/fix" });
+    if (result.passed && httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/fix", headers: internalLabControlHeaders() });
     return result;
   });
 
@@ -272,7 +272,7 @@ export function buildApp(dependencies: AppDependencies = {}): FastifyInstance {
     if (!lesson.success || !params.runId) return reply.code(400).send({ error: "Некорректная лаборатория." });
     const run = resetLabRun(lesson.data, params.runId);
     if (!run) return reply.code(404).send({ error: "Сессия лаборатории не найдена." });
-    if (httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/reset" });
+    if (httpTargetLessons.has(lesson.data)) await app.inject({ method: "POST", url: "/api/labs/http-targets/" + lesson.data + "/" + params.runId + "/reset", headers: internalLabControlHeaders() });
     return { run };
   });
 
