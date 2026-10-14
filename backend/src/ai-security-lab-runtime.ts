@@ -19,9 +19,18 @@ type Controls = Record<string, boolean>;
 type Phase = "ready" | "exploited" | "fixed" | "passed";
 type Session = { runId: string; labId: LabId; phase: Phase; controls: Controls; evidence: Array<{ step: string; message: string; passed: boolean }>; createdAt: string };
 const sessions = new Map<string, Session>();
+const MAX_CACHED_AI_LAB_SESSIONS = 500;
 const catalogById = new Map<string, typeof aiSecurityLabCatalog[number]>(aiSecurityLabCatalog.map((lab) => [lab.id, lab]));
 const controlsFor = (): Controls => Object.fromEntries(aiSecurityLabCatalog.map((lab) => [lab.control, false]));
 const keyFor = (labId: string, runId: string) => labId + ":" + runId;
+function cacheSession(run: Session): void {
+  sessions.set(keyFor(run.labId, run.runId), run);
+  while (sessions.size > MAX_CACHED_AI_LAB_SESSIONS) {
+    const oldestKey = sessions.keys().next().value;
+    if (oldestKey === undefined) break;
+    sessions.delete(oldestKey);
+  }
+}
 function findSession(labId: string, runId: string): Session | null {
   const key = keyFor(labId, runId);
   const cached = sessions.get(key);
@@ -29,11 +38,11 @@ function findSession(labId: string, runId: string): Session | null {
   const stored = getAISecurityLabRun(labId, runId);
   if (!stored) return null;
   const run: Session = { ...stored, labId: stored.labId as LabId };
-  sessions.set(key, run);
+  cacheSession(run);
   return run;
 }
 function persistSession(run: Session): void {
-  sessions.set(keyFor(run.labId, run.runId), run);
+  cacheSession(run);
   saveAISecurityLabRun(run);
 }
 
