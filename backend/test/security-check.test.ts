@@ -1,0 +1,89 @@
+import { describe, expect, it } from "vitest";
+import { checkLessonFix, checkSqlInjectionFix } from "../src/security-check.js";
+
+describe("SQL injection static verifier: known vulnerable and fixed examples", () => {
+  const vulnerableExamples = [
+    'const query = "SELECT * FROM users WHERE name = " + username; db.query(query);',
+    'db.query(`SELECT * FROM users WHERE name = ${username}`);',
+    'const query = "UPDATE users SET name = " + name + " WHERE id = " + id; db.execute(query);',
+    'const query = username + "SELECT * FROM users WHERE name = "; db.query(query);'
+  ];
+  const fixedExamples = [
+    'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+    'db.execute("SELECT * FROM users WHERE id = $1", [id]);',
+    'const stmt = db.prepare("SELECT * FROM users WHERE name = ?"); stmt.get(username);'
+  ];
+
+  it.each(vulnerableExamples)("rejects vulnerable SQL: %s", (code) => {
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
+  it.each(fixedExamples)("accepts parameterized SQL: %s", (code) => {
+    const result = checkSqlInjectionFix(code);
+    expect(result.passed).toBe(true);
+    expect(result.evidence.join(" ")).toContain("параметризованного");
+  });
+
+  it("does not pass when a safe example exists only in a comment", () => {
+    const code = '// db.query("SELECT * FROM users WHERE name = ?", [username]);';
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
+  it("rejects template interpolation even when a separate safe query exists", () => {
+    const code = [
+      'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+      'const query = `SELECT * FROM users WHERE name = ${username}`;',
+      'db.query(query);'
+    ].join("\n");
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
+  it("does not treat a commented-out vulnerable example as active code", () => {
+    const code = [
+      '// const query = "SELECT * FROM users WHERE name = " + username;',
+      'db.query("SELECT * FROM users WHERE name = ?", [username]);'
+    ].join("\n");
+    expect(checkSqlInjectionFix(code).passed).toBe(true);
+  });
+
+  it("does not claim that an empty editor is safe", () => {
+    expect(checkSqlInjectionFix("  ").passed).toBe(false);
+  });
+
+  it("does not pass when a vulnerable query is present alongside a safe query", () => {
+    const code = [
+      'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+      'const unsafe = "SELECT * FROM users WHERE id = " + id;'
+    ].join("\n");
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+
+  it("rejects reverse concatenation even when a separate safe query exists", () => {
+    const code = [
+      'db.query("SELECT * FROM users WHERE name = ?", [username]);',
+      'const unsafe = username + "SELECT * FROM users WHERE id = ";'
+    ].join("\n");
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+});
+
+
+describe("IDOR owner-scope verifier", () => {
+  it("accepts a resource lookup constrained by the authenticated owner", () => {
+    const result = checkLessonFix("idor", "findUnique({ id: req.params.id, ownerId: req.user.id });");
+    expect(result.passed).toBe(true);
+  });
+
+  it("rejects a resource lookup using only the caller-controlled ID", () => {
+    const result = checkLessonFix("idor", "findUnique({ id: req.params.id });");
+    expect(result.passed).toBe(false);
+  });
+});
+
+
+describe("SQLi verifier alias/template edge cases", () => {
+  it("rejects one interpolated SQL template without relying on a preceding safe query", () => {
+    const code = 'db.query(\x60SELECT * FROM users WHERE name = \x22${username}\x22\x60);';
+    expect(checkSqlInjectionFix(code).passed).toBe(false);
+  });
+});

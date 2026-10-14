@@ -1,0 +1,129 @@
+import { afterEach, describe, expect, it } from "vitest";
+import { buildApp } from "../src/app.js";
+import { internalLabControlHeaders } from "../src/http-lab-targets.js";
+
+describe("controlled HTTP vulnerability targets", () => {
+  const apps: Array<Awaited<ReturnType<typeof buildApp>>> = [];
+  afterEach(async () => { await Promise.all(apps.splice(0).map((app) => app.close())); });
+
+  async function fixture(lessonId: string, method: "GET" | "POST" = "GET", query = "") {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const runId = "test-" + lessonId;
+    const base = "/api/labs/http-targets/" + lessonId + "/" + runId;
+    const prepared = await app.inject({ method: "POST", url: base + "/prepare", headers: internalLabControlHeaders() });
+    expect(prepared.statusCode).toBe(200);
+    const url = base + "/fixture" + query;
+    const vulnerable = await app.inject({ method, url, ...(method === "POST" && lessonId === "xss-stored" ? { payload: { comment: "<img src=x onerror=alert(1)>" } } : {}) });
+    const fixed = await app.inject({ method: "POST", url: base + "/fix", headers: internalLabControlHeaders() });
+    expect(fixed.statusCode).toBe(200);
+    const protectedResponse = await app.inject({ method, url, ...(method === "POST" && lessonId === "xss-stored" ? { payload: { comment: "<img src=x onerror=alert(1)>" } } : {}) });
+    return { app, base, vulnerable, protectedResponse };
+  }
+
+  it("reflected and stored XSS change from raw HTML to escaped text", async () => {
+    const reflected = await fixture("xss-reflected", "GET", "?value=%3Csvg%20onload%3Dalert(1)%3E");
+    expect(reflected.vulnerable.body).toContain("<svg onload=alert(1)>");
+    expect(reflected.protectedResponse.body).toContain("&lt;svg onload=alert(1)&gt;");
+
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const base = "/api/labs/http-targets/xss-stored/stored-run";
+    await app.inject({ method: "POST", url: base + "/prepare", headers: internalLabControlHeaders() });
+    const saved = await app.inject({ method: "POST", url: base + "/fixture", payload: { comment: "<img src=x onerror=alert(1)>" } });
+    expect(saved.statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: base + "/fixture" })).body).toContain("<img src=x onerror=alert(1)>");
+    await app.inject({ method: "POST", url: base + "/fix", headers: internalLabControlHeaders() });
+    expect((await app.inject({ method: "GET", url: base + "/fixture" })).body).toContain("&lt;img src=x onerror=alert(1)&gt;");
+  });
+
+  it("DOM XSS fixture exposes unsafe and fixed sinks as actual HTTP-served HTML", async () => {
+    const { vulnerable, protectedResponse } = await fixture("xss-dom");
+    expect(vulnerable.body).toContain(".innerHTML=value");
+    expect(protectedResponse.body).toContain(".textContent=value");
+  });
+
+  it("IDOR blocks cross-user records after the fix", async () => {
+    const { vulnerable, protectedResponse } = await fixture("idor", "GET", "?id=bob-note");
+    expect(vulnerable.statusCode).toBe(200);
+    expect(vulnerable.body).toContain("BOB-PRIVATE-FIXTURE");
+    expect(protectedResponse.statusCode).toBe(403);
+  });
+
+  it("CSRF fixture accepts a state change before protection and requires a token after", async () => {
+    const { vulnerable, protectedResponse } = await fixture("csrf", "POST");
+    expect(vulnerable.statusCode).toBe(200);
+    expect(protectedResponse.statusCode).toBe(403);
+  });
+
+  it("path traversal reads only the synthetic secret before remediation", async () => {
+    const { vulnerable, protectedResponse } = await fixture("path-traversal", "GET", "?path=..%2Fsecret.txt");
+    expect(vulnerable.body).toContain("LAB-ONLY-SECRET-FIXTURE");
+    expect(protectedResponse.statusCode).toBe(403);
+  });
+
+  it("SSRF fixture simulates a metadata destination without making outbound requests", async () => {
+    const { vulnerable, protectedResponse } = await fixture("ssrf", "GET", "?url=http%3A%2F%2Fmetadata.lab%2Fidentity");
+    expect(vulnerable.body).toContain("LAB-METADATA-FIXTURE");
+    expect(protectedResponse.statusCode).toBe(403);
+  });
+
+
+  it.each([
+    ["xss-reflected", "res.send(escapeHtml(req.query.value));"],
+    ["xss-stored", "element.textContent = comment;"],
+    ["xss-dom", "element.textContent = location.hash;"],
+    ["idor", "findUnique({ id: req.params.id, ownerId: req.user.id });"],
+    ["csrf", "verifyCsrfToken(req);"],
+    ["path-traversal", "safeResolveWithin(root, userPath);"],
+    ["ssrf", "validateAllowlistedHttpsUrl(inputUrl);"]
+  ] as const)("runs the public exploit → verifier fix → HTTP retest workflow for %s", async (lessonId, safeCode) => {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const base = "/api/labs/scenarios/" + lessonId;
+    const created = await app.inject({ method: "POST", url: base + "/reset", headers: internalLabControlHeaders() });
+    expect(created.statusCode).toBe(200);
+    expect(created.json().mode).toBe("controlled-http");
+    const runId = created.json().run.runId;
+    const exploit = await app.inject({ method: "POST", url: base + "/" + runId + "/exploit" });
+    expect(exploit.json()).toMatchObject({ vulnerable: true, passed: true, phase: "exploited" });
+    const fixed = await app.inject({ method: "POST", url: base + "/" + runId + "/fix", payload: { code: safeCode } });
+    expect(fixed.json().remediation?.passed, JSON.stringify(fixed.json())).toBe(true);
+    const retest = await app.inject({ method: "POST", url: base + "/" + runId + "/retest" });
+    expect(retest.json()).toMatchObject({ vulnerable: false, passed: true, phase: "passed" });
+  });
+
+  it("does not allow public callers to invoke internal prepare/fix/reset controls", async () => {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    const runId = "control-guard-test";
+    const target = "/api/labs/http-targets/idor/" + runId;
+    expect((await app.inject({ method: "POST", url: target + "/prepare" })).statusCode).toBe(404);
+
+    const created = await app.inject({ method: "POST", url: "/api/labs/scenarios/idor/reset" });
+    expect(created.statusCode).toBe(200);
+    const realRunId = created.json().run.runId as string;
+    const directFix = await app.inject({ method: "POST", url: "/api/labs/http-targets/idor/" + realRunId + "/fix" });
+    expect(directFix.statusCode).toBe(404);
+    const directReset = await app.inject({ method: "POST", url: "/api/labs/http-targets/idor/" + realRunId + "/reset" });
+    expect(directReset.statusCode).toBe(404);
+    const stillVulnerable = await app.inject({
+      method: "GET",
+      url: "/api/labs/http-targets/idor/" + realRunId + "/fixture?id=bob-note"
+    });
+    expect(stillVulnerable.statusCode).toBe(200);
+    expect(stillVulnerable.body).toContain("BOB-PRIVATE-FIXTURE");
+  });
+
+  it("rejects unknown lesson and unprepared sessions", async () => {
+    const app = buildApp();
+    await app.ready();
+    apps.push(app);
+    expect((await app.inject({ method: "POST", url: "/api/labs/http-targets/unknown/run/prepare" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "GET", url: "/api/labs/http-targets/idor/missing/fixture?id=bob-note" })).statusCode).toBe(404);
+  });
+});

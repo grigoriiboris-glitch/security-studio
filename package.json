@@ -1,0 +1,33 @@
+{
+  "name": "security-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c green,blue \"npm run dev --workspace @security-studio/api\" \"npm run dev --workspace @security-studio/web\"",
+    "build": "npm run build --workspace @security-studio/web && npm run build --workspace @security-studio/api",
+    "typecheck": "npm run typecheck --workspace @security-studio/web && npm run typecheck --workspace @security-studio/api",
+    "lint": "eslint frontend backend eslint.config.js",
+    "test": "npm run test --workspace @security-studio/api",
+    "test:e2e": "playwright test",
+    "start": "node backend/dist/server.js",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.55.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-vue": "^10.5.1",
+    "globals": "^17.4.0",
+    "typescript-eslint": "^8.57.1"
+  }
+}
