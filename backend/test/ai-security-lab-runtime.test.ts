@@ -64,6 +64,19 @@ describe("server-side AI Security fixture API", () => {
     expect(getAISecurityLabRun("prompt-injection", runId)).toMatchObject({ phase: "passed", evidence: [{ step: "Attack probe" }, { step: "Remediation" }, { step: "Independent retest" }] });
   });
 
+  it("bounds retained AI Security sessions to the most recent 500 runs", async () => {
+    const app = await makeApp();
+    const first = await app.inject({ method: "POST", url: "/api/ai-security/labs/foundations/reset" });
+    expect(first.statusCode).toBe(200);
+    const firstRunId = first.json().run.runId as string;
+    for (let index = 0; index < 500; index += 1) {
+      const response = await app.inject({ method: "POST", url: "/api/ai-security/labs/prompt-injection/reset" });
+      expect(response.statusCode).toBe(200);
+    }
+    const oldRun = await app.inject({ method: "GET", url: `/api/ai-security/labs/foundations/${firstRunId}` });
+    expect(oldRun.statusCode).toBe(404);
+  });
+
   it.each([
     "foundations", "prompt-injection", "rag-isolation", "agent-tools", "privacy",
     "model-security", "red-team", "infrastructure", "interview"
